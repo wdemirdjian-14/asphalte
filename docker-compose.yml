@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: asphalte
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?definissez POSTGRES_PASSWORD dans .env}
+      POSTGRES_DB: asphalte
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U asphalte -d asphalte"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://asphalte:${POSTGRES_PASSWORD}@db:5432/asphalte?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:?generez-le avec openssl rand -hex 32}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://asphalte.wazzz.fr}
+      # Crée le compte administrateur au premier démarrage
+      RUN_SEED: ${RUN_SEED:-true}
+      SEED_DEMO: ${SEED_DEMO:-false}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-contact@asphalte.fr}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?mot de passe du compte atelier}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Atelier Asphalte}
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # Photos produits et photo du garage : doivent survivre aux mises à jour
+      - uploads:/app/public/uploads
+
+volumes:
+  db-data:
+  uploads:

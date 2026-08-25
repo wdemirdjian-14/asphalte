@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1200" width="1600" height="1200" role="img" aria-label="Devanture du garage Asphalte, 31 bis route de la Reine à Boulogne-Billancourt">
+  <defs>
+    <linearGradient id="sign" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d81f2a"/>
+      <stop offset="100%" stop-color="#a5101a"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2b3138"/>
+      <stop offset="55%" stop-color="#1a1f24"/>
+      <stop offset="100%" stop-color="#101418"/>
+    </linearGradient>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c9c2b6"/>
+      <stop offset="100%" stop-color="#a49c90"/>
+    </linearGradient>
+    <linearGradient id="doorlight" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3c4149"/>
+      <stop offset="100%" stop-color="#181c21"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff3b0"/>
+      <stop offset="45%" stop-color="#f5c518"/>
+      <stop offset="100%" stop-color="#a87a08"/>
+    </linearGradient>
+  </defs>
+
+  
+  <rect width="1600" height="1200" fill="url(#wall)"/>
+
+  <!-- Immeuble au-dessus de l'enseigne -->
+  <rect x="0" y="0" width="1600" height="60" fill="#b3aca0"/>
+
+  <!-- Enseigne rouge -->
+  <rect x="120" y="55" width="1360" height="170" fill="url(#sign)"/>
+  <rect x="120" y="55" width="1360" height="170" fill="none" stroke="#7e0c14" stroke-width="6"/>
+  <text x="200" y="180" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-weight="700" font-size="132" letter-spacing="6" fill="#ffffff">ASPHALTE</text>
+  <text x="1090" y="172" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-weight="700" font-size="72" fill="#ffffff">01.47.12.12.12</text>
+
+  <!-- Encadrement rouge de la devanture -->
+  <rect x="120" y="225" width="1360" height="720" fill="#b5151f"/>
+
+  <!-- Vitrine gauche -->
+  <rect x="160" y="265" width="480" height="620" fill="url(#glass)"/>
+  <rect x="160" y="265" width="480" height="620" fill="none" stroke="#8d8579" stroke-width="8"/>
+  <g opacity="0.16" fill="#ffffff">
+    <rect x="185" y="300" width="200" height="14" rx="7"/>
+    <rect x="185" y="330" width="140" height="10" rx="5"/>
+    <polygon points="430,300 620,300 500,560 400,560"/>
+  </g>
+  <!-- Affiche moto encadrée dans la vitrine -->
+  <rect x="360" y="620" width="200" height="150" fill="#f2efe9" stroke="#6b6459" stroke-width="6"/>
+  <g transform="translate(400 660) scale(0.55)" stroke="#c2101c" stroke-width="14" fill="none" stroke-linecap="round">
+    <circle cx="40" cy="120" r="42"/>
+    <circle cx="220" cy="120" r="42"/>
+    <path d="M40 120 L110 60 L180 60 L215 25"/>
+    <path d="M110 60 L165 118 L220 120"/>
+  </g>
+
+  <!-- Porte centrale ouverte sur l'atelier -->
+  <rect x="660" y="245" width="290" height="700" fill="url(#doorlight)"/>
+  <rect x="660" y="245" width="290" height="700" fill="none" stroke="#8d8579" stroke-width="8"/>
+  <!-- Néons de l'atelier -->
+  <g fill="#fdf6e0" opacity="0.85">
+    <rect x="700" y="300" width="190" height="16" rx="8"/>
+    <rect x="720" y="360" width="150" height="12" rx="6"/>
+  </g>
+  <!-- Poteau rouge -->
+  <rect x="790" y="330" width="26" height="560" fill="#c2101c"/>
+  <!-- Scooter à l'intérieur, sur le pont -->
+  <g transform="translate(700 640) scale(0.85)" stroke="#e8e4dc" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.75">
+    <circle cx="30" cy="120" r="38"/>
+    <circle cx="210" cy="120" r="38"/>
+    <path d="M30 120 L80 66 L170 60 L200 26"/>
+    <path d="M80 66 L150 118 L210 120"/>
+  </g>
+  <rect x="680" y="800" width="250" height="18" fill="#c2101c" opacity="0.8"/>
+
+  <!-- Vitrine droite : rayonnages -->
+  <rect x="970" y="265" width="470" height="620" fill="url(#glass)"/>
+  <rect x="970" y="265" width="470" height="620" fill="none" stroke="#8d8579" stroke-width="8"/>
+  <g fill="#d8d2c6" opacity="0.85">
+    <rect x="1000" y="430" width="410" height="12"/>
+    <rect x="1000" y="600" width="410" height="12"/>
+    <rect x="1000" y="760" width="410" height="12"/>
+  </g>
+  <!-- Casque en vitrine -->
+  <path d="M1090 400 a58 58 0 0 1 116 0 v30 h-116z" fill="#efece6"/>
+  <path d="M1120 400 a34 34 0 0 1 68 0 v14 h-68z" fill="#c9c4bb"/>
+  <!-- Cartons et pièces sur les étagères -->
+  <g fill="#cfc7b8">
+    <rect x="1010" y="470" width="90" height="60"/>
+    <rect x="1120" y="480" width="70" height="50"/>
+    <rect x="1230" y="465" width="110" height="65"/>
+    <rect x="1020" y="640" width="120" height="55"/>
+    <rect x="1170" y="650" width="90" height="45"/>
+    <rect x="1290" y="635" width="110" height="60"/>
+  </g>
+
+  <!-- Rideau métallique replié à droite -->
+  <rect x="1440" y="245" width="60" height="700" fill="#9a9287"/>
+  <g stroke="#7e766b" stroke-width="4">
+    <path d="M1440 300h60M1440 360h60M1440 420h60M1440 480h60M1440 540h60M1440 600h60M1440 660h60M1440 720h60M1440 780h60M1440 840h60"/>
+  </g>
+
+  <!-- Numéro de rue -->
+  <rect x="1500" y="250" width="74" height="46" rx="6" fill="#1d5fa8"/>
+  <text x="1537" y="282" text-anchor="middle" font-family="system-ui, sans-serif" font-size="26" font-weight="700" fill="#ffffff">31 bis</text>
+
+  <!-- Présentoir de pneus à gauche -->
+  <g>
+    <rect x="20" y="640" width="440" height="14" fill="#e6e3dd"/>
+    <rect x="20" y="900" width="440" height="14" fill="#e6e3dd"/>
+    <rect x="26" y="480" width="12" height="470" fill="#e6e3dd"/>
+    <rect x="442" y="480" width="12" height="470" fill="#e6e3dd"/>
+    <!-- Panneau d'en-tête du présentoir -->
+    <rect x="20" y="470" width="440" height="110" rx="8" fill="#f4f2ee" stroke="#cfcac1" stroke-width="4"/>
+    <rect x="44" y="500" width="180" height="50" rx="10" fill="#0b5fb0"/>
+    <rect x="60" y="516" width="148" height="8" rx="4" fill="#f7d64a"/>
+    <text x="330" y="540" text-anchor="middle" font-family="system-ui, sans-serif" font-size="34" font-weight="700" fill="#4a4a4a">PNEUS</text>
+  </g>
+  <g fill="#141414">
+    <ellipse cx="70" cy="770" rx="34" ry="118"/>
+    <ellipse cx="140" cy="770" rx="34" ry="118"/>
+    <ellipse cx="210" cy="770" rx="34" ry="118"/>
+    <ellipse cx="280" cy="770" rx="34" ry="118"/>
+    <ellipse cx="350" cy="770" rx="34" ry="118"/>
+    <ellipse cx="70" cy="1030" rx="34" ry="112"/>
+    <ellipse cx="140" cy="1030" rx="34" ry="112"/>
+    <ellipse cx="210" cy="1030" rx="34" ry="112"/>
+    <ellipse cx="280" cy="1030" rx="34" ry="112"/>
+    <ellipse cx="350" cy="1030" rx="34" ry="112"/>
+  </g>
+  <g fill="#f2c73c" opacity="0.9">
+    <rect x="56" y="742" width="28" height="18" rx="3"/>
+    <rect x="126" y="742" width="28" height="18" rx="3"/>
+    <rect x="196" y="742" width="28" height="18" rx="3"/>
+    <rect x="266" y="742" width="28" height="18" rx="3"/>
+    <rect x="336" y="742" width="28" height="18" rx="3"/>
+  </g>
+
+  <!-- Seuil et marche rouge -->
+  <rect x="0" y="945" width="1600" height="120" fill="#cfc9bd"/>
+  <rect x="620" y="1000" width="360" height="30" fill="#d0202b"/>
+  <rect x="620" y="1040" width="360" height="30" fill="#d0202b"/>
+  <rect x="620" y="1080" width="360" height="30" fill="#d0202b"/>
+
+  <!-- Trottoir -->
+  <rect x="0" y="1065" width="1600" height="135" fill="#b6b0a4"/>
+  <g stroke="#a29c90" stroke-width="4">
+    <path d="M0 1120h1600M200 1065v135M520 1065v135M1060 1065v135M1380 1065v135"/>
+  </g>
+
+  <!-- Liseré doré discret, rappel du logo -->
+  <rect x="0" y="1188" width="1600" height="12" fill="url(#gold)" opacity="0.85"/>
+</svg>

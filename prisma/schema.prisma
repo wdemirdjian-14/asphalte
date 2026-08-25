@@ -1,0 +1,384 @@
+// Asphalte — schéma de données MVP
+// Dépannage & réparation 2 roues, Boulogne-Billancourt
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Backoffice / utilisateurs
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  MECANICIEN
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(ADMIN)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  receptions     Reception[]
+  stockMovements StockMovement[]
+}
+
+// ---------------------------------------------------------------------------
+// Contenu éditorial de la page publique (administrable depuis le backoffice)
+// ---------------------------------------------------------------------------
+
+model SiteContent {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+enum MediaKind {
+  GARAGE
+  ATELIER
+  EQUIPE
+  REALISATION
+  AUTRE
+}
+
+model MediaAsset {
+  id        String    @id @default(cuid())
+  url       String
+  alt       String    @default("")
+  kind      MediaKind @default(AUTRE)
+  position  Int       @default(0)
+  published Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  @@index([kind, position])
+}
+
+// ---------------------------------------------------------------------------
+// Messages reçus depuis le widget de contact
+// ---------------------------------------------------------------------------
+
+enum MessageStatus {
+  NOUVEAU
+  LU
+  TRAITE
+}
+
+model ContactMessage {
+  id        String        @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  plate     String?
+  subject   String?
+  message   String
+  status    MessageStatus @default(NOUVEAU)
+  createdAt DateTime      @default(now())
+
+  @@index([status, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Vue 360 client
+// ---------------------------------------------------------------------------
+
+model Client {
+  id         String   @id @default(cuid())
+  firstName  String
+  lastName   String
+  company    String?
+  email      String?
+  phone      String
+  phone2     String?
+  address    String?
+  postalCode String?
+  city       String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  vehicles      Vehicle[]
+  interventions Intervention[]
+  sales         Sale[]
+
+  @@index([lastName, firstName])
+  @@index([phone])
+}
+
+model Vehicle {
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  /// Plaque normalisée (majuscules, sans espace ni tiret) — sert à la recherche
+  plate        String
+  plateDisplay String
+  brand        String
+  model        String
+  year         Int?
+  displacement Int?
+  vin          String?
+  color        String?
+  mileage      Int?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  interventions Intervention[]
+
+  @@index([plate])
+  @@index([brand, model])
+}
+
+enum InterventionType {
+  DEPANNAGE
+  REPARATION
+  ENTRETIEN
+  DIAGNOSTIC
+}
+
+enum InterventionStatus {
+  OUVERT
+  EN_COURS
+  TERMINE
+  FACTURE
+  ANNULE
+}
+
+model Intervention {
+  id          String             @id @default(cuid())
+  reference   String             @unique
+  type        InterventionType   @default(DEPANNAGE)
+  status      InterventionStatus @default(OUVERT)
+  title       String
+  description String?
+  clientId    String
+  client      Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vehicleId   String?
+  vehicle     Vehicle?           @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  // Spécifique dépannage
+  pickupLocation String?
+  dropoffLocation String?
+
+  scheduledAt DateTime?
+  completedAt DateTime?
+  mileage     Int?
+  laborHours  Decimal   @default(0) @db.Decimal(6, 2)
+  laborRate   Decimal   @default(0) @db.Decimal(10, 2)
+  partsTotal  Decimal   @default(0) @db.Decimal(10, 2)
+  totalAmount Decimal   @default(0) @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  lines          InterventionLine[]
+  stockMovements StockMovement[]
+
+  @@index([clientId, createdAt])
+  @@index([status])
+}
+
+model InterventionLine {
+  id             String       @id @default(cuid())
+  interventionId String
+  intervention   Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  productId      String?
+  product        Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  label          String
+  quantity       Decimal      @default(1) @db.Decimal(10, 2)
+  unitPrice      Decimal      @default(0) @db.Decimal(10, 2)
+
+  @@index([interventionId])
+}
+
+// ---------------------------------------------------------------------------
+// Ventes d'accessoires / produits au comptoir
+// ---------------------------------------------------------------------------
+
+model Sale {
+  id          String   @id @default(cuid())
+  reference   String   @unique
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  soldAt      DateTime @default(now())
+  totalAmount Decimal  @default(0) @db.Decimal(10, 2)
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  lines          SaleLine[]
+  stockMovements StockMovement[]
+
+  @@index([clientId, soldAt])
+}
+
+model SaleLine {
+  id        String   @id @default(cuid())
+  saleId    String
+  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  label     String
+  quantity  Decimal  @default(1) @db.Decimal(10, 2)
+  unitPrice Decimal  @default(0) @db.Decimal(10, 2)
+
+  @@index([saleId])
+}
+
+// ---------------------------------------------------------------------------
+// Catalogue produits & stock
+// ---------------------------------------------------------------------------
+
+enum ProductCategory {
+  PIECE
+  ACCESSOIRE
+  PNEU
+  LUBRIFIANT
+  EQUIPEMENT
+  CONSOMMABLE
+  AUTRE
+}
+
+model Product {
+  id            String          @id @default(cuid())
+  sku           String          @unique
+  name          String
+  description   String?
+  category      ProductCategory @default(PIECE)
+  brand         String?
+  barcode       String?
+  location      String?
+  purchasePrice Decimal         @default(0) @db.Decimal(10, 2)
+  salePrice     Decimal         @default(0) @db.Decimal(10, 2)
+  vatRate       Decimal         @default(20) @db.Decimal(5, 2)
+  stockQty      Int             @default(0)
+  stockAlert    Int             @default(0)
+  active        Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  photos            ProductPhoto[]
+  movements         StockMovement[]
+  receptionLines    ReceptionLine[]
+  interventionLines InterventionLine[]
+  saleLines         SaleLine[]
+
+  @@index([name])
+  @@index([category, active])
+}
+
+model ProductPhoto {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String   @default("")
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([productId, position])
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  email     String?
+  phone     String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  receptions Reception[]
+}
+
+enum ReceptionStatus {
+  BROUILLON
+  VALIDE
+}
+
+/// Un colis reçu au garage. On saisit toutes les lignes puis on valide :
+/// l'entrée en stock se fait en une seule fois, avec traçabilité complète.
+model Reception {
+  id             String          @id @default(cuid())
+  reference      String          @unique
+  status         ReceptionStatus @default(BROUILLON)
+  supplierId     String?
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  carrier        String?
+  trackingNumber String?
+  packageCount   Int             @default(1)
+  invoiceNumber  String?
+  receivedAt     DateTime        @default(now())
+  validatedAt    DateTime?
+  receivedById   String?
+  receivedBy     AdminUser?      @relation(fields: [receivedById], references: [id], onDelete: SetNull)
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  lines     ReceptionLine[]
+  movements StockMovement[]
+
+  @@index([status, receivedAt])
+  @@index([trackingNumber])
+}
+
+model ReceptionLine {
+  id          String    @id @default(cuid())
+  receptionId String
+  reception   Reception @relation(fields: [receptionId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  expectedQty Int       @default(0)
+  quantity    Int
+  unitCost    Decimal   @default(0) @db.Decimal(10, 2)
+  batch       String?
+  notes       String?
+
+  @@index([receptionId])
+}
+
+enum MovementType {
+  RECEPTION
+  VENTE
+  INTERVENTION
+  AJUSTEMENT
+  RETOUR
+  INVENTAIRE
+}
+
+/// Journal immuable des mouvements de stock : qui, quand, pourquoi, et
+/// l'état du stock avant/après. C'est la source de vérité de la traçabilité.
+model StockMovement {
+  id             String        @id @default(cuid())
+  productId      String
+  product        Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type           MovementType
+  /// Signé : positif pour une entrée, négatif pour une sortie
+  quantity       Int
+  stockBefore    Int
+  stockAfter     Int
+  unitCost       Decimal?      @db.Decimal(10, 2)
+  reason         String?
+  receptionId    String?
+  reception      Reception?    @relation(fields: [receptionId], references: [id], onDelete: SetNull)
+  saleId         String?
+  sale           Sale?         @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  interventionId String?
+  intervention   Intervention? @relation(fields: [interventionId], references: [id], onDelete: SetNull)
+  userId         String?
+  user           AdminUser?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userLabel      String        @default("système")
+  createdAt      DateTime      @default(now())
+
+  @@index([productId, createdAt])
+  @@index([type, createdAt])
+}

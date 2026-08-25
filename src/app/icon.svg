@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Logo Asphalte">
+  <defs>
+    <linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff3b0"/>
+      <stop offset="45%" stop-color="#f5c518"/>
+      <stop offset="100%" stop-color="#a87a08"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
+  <path d="M256 60 L432 128 v148 c0 96-78 152-176 196C158 428 80 372 80 276V128z" fill="none" stroke="url(#lg)" stroke-width="14"/>
+  <circle cx="256" cy="214" r="86" fill="none" stroke="url(#lg)" stroke-width="14"/>
+  <circle cx="256" cy="214" r="34" fill="none" stroke="url(#lg)" stroke-width="10"/>
+  <g stroke="url(#lg)" stroke-width="9" stroke-linecap="round">
+    <path d="M256 128v42M256 258v42M170 214h42M300 214h42M195 153l30 30M287 245l30 30M317 153l-30 30M225 245l-30 30"/>
+  </g>
+  <text x="256" y="392" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-weight="700" font-size="76" fill="url(#lg)">Asphalte</text>
+  <text x="256" y="432" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" letter-spacing="2" fill="#e7e7e7">DEPUIS 2002</text>
+</svg>

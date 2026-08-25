@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* --------------------------------------------------------------------------
+   Charte Asphalte — reprise du logo : or métallisé sur bitume noir,
+   touche de rouge pour les alertes.
+   -------------------------------------------------------------------------- */
+@theme {
+  --color-gold-50: #fffaeb;
+  --color-gold-100: #fff1c6;
+  --color-gold-200: #ffe288;
+  --color-gold-300: #ffd24a;
+  --color-gold-400: #ffc21f;
+  --color-gold-500: #f5c518;
+  --color-gold-600: #d4a017;
+  --color-gold-700: #a87a08;
+  --color-gold-800: #7d5a09;
+  --color-gold-900: #5c420b;
+
+  --color-ink-50: #f6f6f6;
+  --color-ink-100: #e7e7e7;
+  --color-ink-200: #c9c9c9;
+  --color-ink-300: #a3a3a3;
+  --color-ink-400: #6e6e6e;
+  --color-ink-500: #4a4a4a;
+  --color-ink-600: #3a3a3a;
+  --color-ink-700: #2a2a2a;
+  --color-ink-800: #1c1c1c;
+  --color-ink-900: #121212;
+  --color-ink-950: #0a0a0a;
+
+  --color-brake-500: #c1121f;
+  --color-brake-600: #9c0e18;
+
+  --font-display: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --radius-card: 1rem;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--color-ink-950);
+  color: var(--color-ink-50);
+  font-family: var(--font-display);
+  /* Le widget flottant ne doit jamais masquer la fin de page sur mobile */
+  overscroll-behavior-y: none;
+}
+
+/* Texte doré du logo */
+.text-gilded {
+  background: linear-gradient(180deg, #fff3b0 0%, #f5c518 45%, #d4a017 70%, #8a6508 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Fond « bitume » : grain sombre + reflet doré diffus */
+.bg-asphalt {
+  background-color: var(--color-ink-950);
+  background-image:
+    radial-gradient(60% 45% at 50% 0%, rgba(245, 197, 24, 0.16) 0%, transparent 70%),
+    radial-gradient(40% 30% at 10% 100%, rgba(193, 18, 31, 0.1) 0%, transparent 70%);
+}
+
+.hairline {
+  border-color: rgba(245, 197, 24, 0.18);
+}
+
+/* Bandes de la route, réutilisées comme séparateur */
+.road-divider {
+  height: 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--color-gold-500) 0 28px,
+    transparent 28px 56px
+  );
+  opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
