@@ -1,6 +1,14 @@
 import Link from "next/link";
 
-import { Badge, Card, Empty, PageHeader, Select, buttonClass } from "@/components/ui";
+import {
+  Badge,
+  Card,
+  Empty,
+  LinkButton,
+  PageHeader,
+  Select,
+  buttonClass,
+} from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { formatDate, formatPlate, fullName } from "@/lib/format";
 import {
@@ -39,6 +47,11 @@ export default async function InterventionsPage({
       <PageHeader
         title="Interventions"
         subtitle="Dépannages, réparations, entretiens et diagnostics"
+        action={
+          <LinkButton href="/admin/interventions/nouvelle" variant="primary">
+            Nouvelle intervention
+          </LinkButton>
+        }
       />
 
       <form method="get" className="flex flex-col gap-2 sm:flex-row">
@@ -65,7 +78,10 @@ export default async function InterventionsPage({
 
       {interventions.length === 0 ? (
         <Empty>
-          Aucune intervention. Créez-en une depuis la fiche d&apos;un client.
+          Aucune intervention.{" "}
+          <Link href="/admin/interventions/nouvelle" className="text-gold-700 underline">
+            En créer une
+          </Link>
         </Empty>
       ) : (
         <Card>

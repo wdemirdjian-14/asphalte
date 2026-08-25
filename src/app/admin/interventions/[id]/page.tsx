@@ -13,6 +13,7 @@ import {
   PageHeader,
   Select,
   Textarea,
+  Thumb,
   buttonClass,
   buttonDangerClass,
   buttonGoldClass,
@@ -40,10 +41,11 @@ export default async function InterventionDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; ok?: string }>;
+  searchParams: Promise<{ error?: string; ok?: string; p?: string }>;
 }) {
   const { id } = await params;
-  const { error, ok } = await searchParams;
+  const { error, ok, p } = await searchParams;
+  const productQuery = (p ?? "").trim();
 
   const [intervention, products, catalogue] = await Promise.all([
     prisma.intervention.findUnique({
@@ -55,11 +57,22 @@ export default async function InterventionDetailPage({
         services: { orderBy: { label: "asc" } },
       },
     }),
-    prisma.product.findMany({
-      where: { active: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, stockQty: true },
-    }),
+    productQuery
+      ? prisma.product.findMany({
+          where: {
+            active: true,
+            OR: [
+              { name: { contains: productQuery, mode: "insensitive" } },
+              { brand: { contains: productQuery, mode: "insensitive" } },
+              { sku: { contains: productQuery, mode: "insensitive" } },
+              { location: { contains: productQuery, mode: "insensitive" } },
+            ],
+          },
+          include: { photos: { take: 1, orderBy: { position: "asc" } } },
+          orderBy: { name: "asc" },
+          take: 10,
+        })
+      : Promise.resolve([]),
     prisma.serviceTask.findMany({
       where: { active: true },
       orderBy: [{ category: "asc" }, { position: "asc" }],
@@ -246,37 +259,105 @@ export default async function InterventionDetailPage({
             </ul>
           )}
 
-          <form
-            action={addInterventionPartAction}
-            className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
-          >
-            <input type="hidden" name="interventionId" value={id} />
-            <p className="text-xs text-slate-500">
-              Une pièce choisie au catalogue sort automatiquement du stock, avec
-              trace du dossier.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-4">
-              <Field label="Pièce du stock" className="sm:col-span-2">
-                <Select name="productId" defaultValue="">
-                  <option value="">— Pièce hors stock —</option>
+          <div className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            {/* Pièce du stock : on cherche, on ajoute, le stock est décrémenté */}
+            <form method="get" className="flex gap-2">
+              <Input
+                name="p"
+                defaultValue={productQuery}
+                placeholder="Chercher une pièce du stock : plaquettes, huile…"
+                className="flex-1"
+              />
+              <button type="submit" className={buttonClass}>
+                Chercher
+              </button>
+            </form>
+
+            {productQuery ? (
+              products.length > 0 ? (
+                <ul className="divide-y divide-slate-200">
                   {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name} ({product.stockQty} en stock)
-                    </option>
+                    <li key={product.id} className="flex items-center gap-3 py-2.5">
+                      <Thumb src={product.photos[0]?.url} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {product.name}
+                        </p>
+                        <p className="truncate text-xs text-slate-500">
+                          {product.brand ? `${product.brand} · ` : ""}
+                          {product.stockQty} en stock
+                        </p>
+                      </div>
+                      <form
+                        action={addInterventionPartAction}
+                        className="flex shrink-0 items-center gap-2"
+                      >
+                        <input type="hidden" name="interventionId" value={id} />
+                        <input type="hidden" name="productId" value={product.id} />
+                        <input type="hidden" name="p" value={productQuery} />
+                        <Input
+                          name="quantity"
+                          type="number"
+                          min={1}
+                          defaultValue={1}
+                          aria-label={`Quantité de ${product.name}`}
+                          className="w-20"
+                        />
+                        <button
+                          type="submit"
+                          className={buttonGoldClass}
+                          disabled={product.stockQty <= 0}
+                        >
+                          Monter
+                        </button>
+                      </form>
+                    </li>
                   ))}
-                </Select>
-              </Field>
-              <Field label="Libellé" hint="Vide = nom du produit">
-                <Input name="label" />
+                </ul>
+              ) : (
+                <p className="text-sm text-slate-600">
+                  Aucune pièce du stock ne correspond à «&nbsp;{productQuery}&nbsp;».
+                  Utilisez la ligne libre ci-dessous, ou{" "}
+                  <Link href="/admin/produits/nouveau" className="text-gold-700 underline">
+                    créez la fiche produit
+                  </Link>
+                  .
+                </p>
+              )
+            ) : (
+              <p className="text-sm text-slate-500">
+                Une pièce choisie ici sort automatiquement du stock, avec trace
+                du dossier.
+              </p>
+            )}
+
+            {/* Ligne libre : prestation ou pièce non gérée en stock */}
+            <form
+              action={addInterventionPartAction}
+              className="flex flex-col gap-2 border-t border-slate-200 pt-3 sm:flex-row sm:items-end"
+            >
+              <input type="hidden" name="interventionId" value={id} />
+              <Field label="Ligne libre" className="flex-1">
+                <Input
+                  name="label"
+                  required
+                  placeholder="Câble d'embrayage fourni par le client"
+                />
               </Field>
               <Field label="Quantité">
-                <Input name="quantity" type="number" min={1} defaultValue={1} />
+                <Input
+                  name="quantity"
+                  type="number"
+                  min={1}
+                  defaultValue={1}
+                  className="w-24"
+                />
               </Field>
-            </div>
-            <button type="submit" className={buttonClass}>
-              Ajouter la pièce
-            </button>
-          </form>
+              <button type="submit" className={buttonClass}>
+                Ajouter
+              </button>
+            </form>
+          </div>
         </Card>
       </div>
 

@@ -22,12 +22,29 @@ import { applyStockMovement } from "@/lib/stock";
 export async function createInterventionAction(formData: FormData): Promise<void> {
   await requireUser();
 
-  const clientId = text(formData, "clientId");
-  const origin = text(formData, "origin") || `/admin/clients/${clientId}`;
+  const vehicleId = optionalText(formData, "vehicleId");
   const title = text(formData, "title");
 
-  if (!clientId || !title) {
-    failWith(origin, "Le client et l'intitulé sont obligatoires.");
+  // Le véhicule suffit : son propriétaire est déduit, on ne saisit pas
+  // deux fois la même information.
+  let clientId = text(formData, "clientId");
+  if (vehicleId) {
+    const vehicle = await prisma.vehicle.findUnique({
+      where: { id: vehicleId },
+      select: { clientId: true },
+    });
+    if (vehicle) clientId = vehicle.clientId;
+  }
+
+  const origin =
+    text(formData, "origin") ||
+    (clientId ? `/admin/clients/${clientId}` : "/admin/interventions/nouvelle");
+
+  if (!clientId) {
+    failWith(origin, "Choisissez le propriétaire ou son véhicule.");
+  }
+  if (!title) {
+    failWith(origin, "Donnez un intitulé à l'intervention.");
   }
 
   const reference = await nextReference(
@@ -42,7 +59,7 @@ export async function createInterventionAction(formData: FormData): Promise<void
     data: {
       reference,
       clientId,
-      vehicleId: optionalText(formData, "vehicleId"),
+      vehicleId,
       type: pickEnum(INTERVENTION_TYPES, text(formData, "type"), "DEPANNAGE"),
       status: pickEnum(INTERVENTION_STATUSES, text(formData, "status"), "OUVERT"),
       title,
@@ -158,7 +175,10 @@ export async function addInterventionPartAction(formData: FormData): Promise<voi
   const user = await requireUser();
 
   const interventionId = text(formData, "interventionId");
-  const target = `/admin/interventions/${interventionId}`;
+  const query = text(formData, "p");
+  const target = `/admin/interventions/${interventionId}${
+    query ? `?p=${encodeURIComponent(query)}` : ""
+  }`;
   const productId = optionalText(formData, "productId");
   const quantity = integer(formData, "quantity", 1);
 
