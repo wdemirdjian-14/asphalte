@@ -4,7 +4,7 @@ Site vitrine et backoffice atelier pour **Asphalte**, spécialiste du dépannage
 2 roues au 31 bis route de la Reine à Boulogne-Billancourt, en activité depuis
 2002, toutes marques.
 
-Cible de déploiement : **https://asphalte.wazzz.fr**
+Cible de déploiement : **https://asphalte.walautao.fr**
 
 ---
 
@@ -96,55 +96,156 @@ attente). `SEED_DEMO=false` ne crée que le compte administrateur.
 
 ---
 
-## Déploiement sur asphalte.wazzz.fr
+## Déploiement sur asphalte.walautao.fr
 
-### 1. Variables d'environnement
+Procédure pour un serveur Linux avec **Docker**, **docker compose** et
+**nginx** déjà installés, l'enregistrement DNS de `asphalte.walautao.fr`
+pointant sur l'IP du serveur.
 
-Sur le serveur, créer un `.env` à côté du `docker-compose.yml` :
+### 1. Récupérer le code
 
-```dotenv
-POSTGRES_PASSWORD=...              # openssl rand -hex 24
-AUTH_SECRET=...                    # openssl rand -hex 32
-SEED_ADMIN_EMAIL=contact@asphalte.fr
-SEED_ADMIN_PASSWORD=...            # mot de passe du compte atelier
-NEXT_PUBLIC_SITE_URL=https://asphalte.wazzz.fr
-RUN_SEED=true
-SEED_DEMO=false
+```bash
+sudo mkdir -p /opt/asphalte && sudo chown "$USER" /opt/asphalte
+git clone -b claude/asphalte-mvp-setup-16zuyl \
+  https://github.com/wdemirdjian-14/asphalte.git /opt/asphalte
+cd /opt/asphalte
 ```
 
-### 2. Lancement
+Une fois la branche fusionnée dans `main`, l'option `-b` n'est plus nécessaire.
+
+### 2. Variables d'environnement
+
+```bash
+cd /opt/asphalte
+cat > .env <<'EOF'
+POSTGRES_PASSWORD=REMPLACER
+AUTH_SECRET=REMPLACER
+SEED_ADMIN_EMAIL=contact@asphalte.fr
+SEED_ADMIN_PASSWORD=REMPLACER
+SEED_ADMIN_NAME=Atelier Asphalte
+NEXT_PUBLIC_SITE_URL=https://asphalte.walautao.fr
+RUN_SEED=true
+SEED_DEMO=false
+EOF
+chmod 600 .env
+```
+
+Générer les deux secrets et les coller dans le fichier :
+
+```bash
+openssl rand -hex 24   # POSTGRES_PASSWORD
+openssl rand -hex 32   # AUTH_SECRET
+```
+
+`SEED_ADMIN_PASSWORD` est le mot de passe du compte atelier : choisissez-le
+vous-même, il servira à la première connexion.
+
+### 3. Démarrer l'application
 
 ```bash
 docker compose up -d --build
+docker compose logs -f web     # Ctrl+C pour quitter le suivi
 ```
 
-Le conteneur applique les migrations Prisma au démarrage, crée le compte
-administrateur au premier lancement, puis sert l'application sur
-`127.0.0.1:3000`. Les photos envoyées depuis le backoffice sont stockées dans
-le volume `uploads` : elles survivent aux mises à jour.
+Le conteneur applique les migrations Prisma, crée le compte administrateur,
+puis écoute sur `127.0.0.1:3000` — accessible uniquement depuis le serveur,
+nginx s'occupe de l'exposition.
 
-Une fois le premier démarrage réussi, passer `RUN_SEED=false` pour ne plus
-rejouer le seed à chaque redéploiement.
-
-### 3. Reverse proxy et TLS
-
-Exemple avec Caddy, qui gère le certificat automatiquement :
-
-```caddyfile
-asphalte.wazzz.fr {
-    encode gzip zstd
-    reverse_proxy 127.0.0.1:3000
-}
-```
-
-Avec nginx, proxifier vers `http://127.0.0.1:3000` et laisser certbot gérer le
-certificat. Penser à autoriser un corps de requête d'au moins 8 Mo
-(`client_max_body_size 8m;`) pour l'envoi des photos.
-
-### 4. Mise à jour
+Vérification avant de toucher à nginx :
 
 ```bash
-git pull && docker compose up -d --build
+curl -I http://127.0.0.1:3000       # doit répondre HTTP/1.1 200 OK
+```
+
+### 4. nginx — configuration HTTP
+
+Deux fichiers prêts à copier se trouvent dans `deploy/nginx/`.
+
+```bash
+sudo cp deploy/nginx/asphalte-http.conf \
+        /etc/nginx/sites-available/asphalte.walautao.fr
+sudo ln -s /etc/nginx/sites-available/asphalte.walautao.fr \
+           /etc/nginx/sites-enabled/asphalte.walautao.fr
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Sur une distribution sans `sites-available` (RHEL, Alma, Rocky), copier le
+fichier dans `/etc/nginx/conf.d/asphalte.walautao.fr.conf` et sauter le
+`ln -s`.
+
+Vérification :
+
+```bash
+curl -I http://asphalte.walautao.fr    # HTTP/1.1 200 OK
+```
+
+### 5. Certificat TLS
+
+```bash
+sudo certbot --nginx -d asphalte.walautao.fr
+```
+
+Certbot ajoute le bloc HTTPS et la redirection dans le fichier créé à
+l'étape 4. La version finale attendue est donnée à titre de référence dans
+`deploy/nginx/asphalte-tls.conf`.
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+curl -I https://asphalte.walautao.fr   # HTTP/2 200
+```
+
+Le renouvellement est automatique ; on peut le tester avec
+`sudo certbot renew --dry-run`.
+
+> Le cookie de session du backoffice est en `Secure` : la connexion à
+> `/admin` ne fonctionne qu'en HTTPS. Faites cette étape avant de vous
+> connecter.
+
+### 6. Premiers réglages
+
+1. Ouvrir `https://asphalte.walautao.fr/login` et se connecter avec
+   `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`.
+2. **Page publique** → « Remplacer la photo » : mettre la vraie photo de la
+   devanture.
+3. **Page publique** → renseigner les horaires (ils sont sur « À compléter »).
+4. Repasser `RUN_SEED=false` dans `.env` pour ne plus rejouer le seed :
+
+```bash
+sed -i 's/^RUN_SEED=true/RUN_SEED=false/' .env
+docker compose up -d
+```
+
+### 7. Mise à jour
+
+```bash
+cd /opt/asphalte
+git pull
+docker compose up -d --build
+```
+
+Les migrations sont appliquées automatiquement au redémarrage. Le volume
+`uploads` (photos) et le volume `db-data` (base) ne sont pas touchés.
+
+### Dépannage
+
+| Symptôme | Piste |
+| --- | --- |
+| `502 Bad Gateway` | Le conteneur ne tourne pas : `docker compose ps`, `docker compose logs web` |
+| `413 Request Entity Too Large` à l'envoi d'une photo | `client_max_body_size 8m;` absent du bloc `server` nginx |
+| Déconnexion immédiate du backoffice | Site servi en HTTP : le cookie `Secure` est refusé, finir l'étape 5 |
+| `certbot` échoue en validation | Le DNS ne pointe pas encore sur le serveur (`dig +short asphalte.walautao.fr`) ou le port 80 est fermé |
+| Redémarrage en boucle du conteneur | Vérifier `AUTH_SECRET` (32 octets minimum) et l'accès à la base dans `docker compose logs web` |
+
+### Sauvegarde
+
+```bash
+# Base de données
+docker compose exec -T db pg_dump -U asphalte asphalte | gzip > asphalte-$(date +%F).sql.gz
+
+# Photos
+docker run --rm -v asphalte_uploads:/data -v "$PWD":/backup alpine \
+  tar czf /backup/uploads-$(date +%F).tar.gz -C /data .
 ```
 
 ---

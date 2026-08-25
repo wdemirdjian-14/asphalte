@@ -62,7 +62,7 @@ export default async function ContentPage({
     <div className="space-y-6">
       <PageHeader
         title="Page publique"
-        subtitle="Textes et photo affichés sur asphalte.wazzz.fr"
+        subtitle="Textes et photo affichés sur asphalte.walautao.fr"
         action={<LinkButton href="/">Voir le site</LinkButton>}
       />
 

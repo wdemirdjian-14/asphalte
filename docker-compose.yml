@@ -23,7 +23,7 @@ services:
     environment:
       DATABASE_URL: postgresql://asphalte:${POSTGRES_PASSWORD}@db:5432/asphalte?schema=public
       AUTH_SECRET: ${AUTH_SECRET:?generez-le avec openssl rand -hex 32}
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://asphalte.wazzz.fr}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://asphalte.walautao.fr}
       # Crée le compte administrateur au premier démarrage
       RUN_SEED: ${RUN_SEED:-true}
       SEED_DEMO: ${SEED_DEMO:-false}
