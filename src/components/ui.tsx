@@ -140,6 +140,11 @@ export function Select(props: ComponentProps<"select">) {
   return <select {...props} className={`${inputClass} ${props.className ?? ""}`} />;
 }
 
+/**
+ * Champ fichier. On ne met jamais l'attribut `capture` : il forcerait
+ * l'appareil photo sur iPhone et supprimerait « Photothèque » et
+ * « Choisir un fichier » du menu natif.
+ */
 export function FileInput(props: ComponentProps<"input">) {
   return (
     <input

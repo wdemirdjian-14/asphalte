@@ -109,3 +109,9 @@ body {
   background-clip: text;
   color: transparent;
 }
+
+/* Entêtes fixes : ne jamais passer sous l'encoche ou la barre d'état
+   quand l'application tourne en plein écran depuis l'écran d'accueil. */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}

@@ -18,7 +18,7 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-dvh bg-slate-50 text-slate-900">
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
+      <header className="safe-top sticky top-0 z-40 border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
           <Link href="/admin" className="flex items-center gap-2">
             <img
@@ -52,7 +52,7 @@ export default async function AdminLayout({
 
       <div className="mx-auto flex max-w-7xl">
         <AdminSidebar />
-        <main className="min-w-0 flex-1 px-4 py-6 pb-24 lg:pb-10">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-6 pb-28 lg:pb-10">{children}</main>
       </div>
 
       <AdminTabBar />

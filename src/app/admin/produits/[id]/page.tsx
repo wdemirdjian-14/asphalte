@@ -194,7 +194,7 @@ export default async function ProductDetailPage({
         <form action={addProductPhotoAction} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <input type="hidden" name="productId" value={id} />
           <Field label="Ajouter une photo" className="flex-1">
-            <FileInput name="photo" required capture="environment" />
+            <FileInput name="photo" required />
           </Field>
           <button type="submit" className={buttonClass}>
             Envoyer

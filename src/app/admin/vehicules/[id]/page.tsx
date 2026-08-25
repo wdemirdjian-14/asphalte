@@ -24,6 +24,7 @@ import {
   updateVehicleAction,
 } from "@/lib/actions/clients";
 import { prisma } from "@/lib/db";
+import { isPdf } from "@/lib/upload";
 import { formatDate, formatMileage, formatPlate, fullName } from "@/lib/format";
 import {
   INTERVENTION_STATUS_TONES,
@@ -90,12 +91,24 @@ export default async function VehiclePage({
                   key={document.id}
                   className="overflow-hidden rounded-lg border border-slate-200 bg-white"
                 >
-                  <a href={document.url} target="_blank" rel="noreferrer">
-                    <img
-                      src={document.url}
-                      alt={document.label || VEHICLE_DOCUMENT_KINDS[document.kind]}
-                      className="aspect-[3/2] w-full object-cover"
-                    />
+                  <a
+                    href={document.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block"
+                  >
+                    {isPdf(document.url) ? (
+                      <span className="flex aspect-[3/2] w-full flex-col items-center justify-center gap-1 bg-slate-100 text-slate-500">
+                        <span className="text-2xl font-bold text-red-700">PDF</span>
+                        <span className="text-xs">Ouvrir le document</span>
+                      </span>
+                    ) : (
+                      <img
+                        src={document.url}
+                        alt={document.label || VEHICLE_DOCUMENT_KINDS[document.kind]}
+                        className="aspect-[3/2] w-full object-cover"
+                      />
+                    )}
                   </a>
                   <div className="space-y-2 p-2">
                     <p className="text-xs font-medium text-slate-700">
@@ -122,8 +135,16 @@ export default async function VehiclePage({
             className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-3"
           >
             <input type="hidden" name="vehicleId" value={id} />
-            <Field label="Photo du document" className="sm:col-span-2">
-              <FileInput name="document" required capture="environment" />
+            <Field
+              label="Photo ou fichier"
+              hint="Appareil photo, photothèque ou fichier (image ou PDF)"
+              className="sm:col-span-2"
+            >
+              <FileInput
+                name="document"
+                required
+                accept="image/*,application/pdf"
+              />
             </Field>
             <Field label="Type">
               <Select name="kind" defaultValue="CARTE_GRISE">

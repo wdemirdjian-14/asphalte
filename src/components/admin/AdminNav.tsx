@@ -24,7 +24,7 @@ export function AdminSidebar() {
 
   return (
     <nav className="hidden w-56 shrink-0 border-r border-slate-200 bg-white p-3 lg:block">
-      <ul className="sticky top-20 space-y-1">
+      <ul className="sticky top-24 space-y-1">
         {LINKS.map((link) => (
           <li key={link.href}>
             <Link

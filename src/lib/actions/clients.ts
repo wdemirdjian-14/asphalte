@@ -14,7 +14,7 @@ import {
   text,
 } from "@/lib/form";
 import { VEHICLE_DOCUMENT_KINDS } from "@/lib/labels";
-import { saveImage, UploadError } from "@/lib/upload";
+import { saveDocument, UploadError } from "@/lib/upload";
 
 export async function createClientAction(formData: FormData): Promise<void> {
   await requireUser();
@@ -179,7 +179,7 @@ export async function addVehicleDocumentAction(formData: FormData): Promise<void
 
   let url: string;
   try {
-    url = await saveImage(file);
+    url = await saveDocument(file);
   } catch (error) {
     failWith(
       target,

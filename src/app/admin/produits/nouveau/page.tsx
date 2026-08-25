@@ -38,7 +38,7 @@ export default async function NewProductPage({
         <Card>
           <div className="space-y-4">
             <Field label="Photo du produit" hint="Appareil photo du téléphone accepté">
-              <FileInput name="photo" capture="environment" />
+              <FileInput name="photo" />
             </Field>
 
             <Field label="Nom">

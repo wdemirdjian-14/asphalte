@@ -17,7 +17,10 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Asphalte",
-    statusBarStyle: "black-translucent",
+    // « default » réserve la place de la barre d'état : en plein écran,
+    // l'entête ne passe plus dessous. « black-translucent » superposait
+    // du texte blanc sur l'entête clair du backoffice.
+    statusBarStyle: "default",
   },
   icons: {
     icon: [

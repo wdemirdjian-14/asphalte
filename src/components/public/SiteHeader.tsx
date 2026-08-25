@@ -2,7 +2,7 @@ import { telHref } from "@/lib/format";
 
 export function SiteHeader({ phone }: { phone: string }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-ink-800/80 bg-ink-950/85 backdrop-blur">
+    <header className="safe-top sticky top-0 z-40 border-b border-ink-800/80 bg-ink-950/85 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
         <img
           src="/images/logo.svg"
