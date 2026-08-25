@@ -1,6 +1,7 @@
 import {
   Card,
   Field,
+  FileInput,
   Flash,
   Input,
   LinkButton,
@@ -27,22 +28,54 @@ export default async function NewProductPage({
     <div className="space-y-6">
       <PageHeader
         title="Nouveau produit"
-        subtitle="Pièce, accessoire, pneu, consommable…"
+        subtitle="Une photo, un nom, une quantité. C'est tout."
         action={<LinkButton href="/admin/produits">Annuler</LinkButton>}
       />
 
       <form action={createProductAction} className="space-y-4">
         <Flash error={error} />
+
         <Card>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Référence (SKU)">
-              <Input name="sku" required placeholder="PLQ-AV-STD" autoCapitalize="characters" />
+          <div className="space-y-4">
+            <Field label="Photo du produit" hint="Appareil photo du téléphone accepté">
+              <FileInput name="photo" capture="environment" />
             </Field>
+
             <Field label="Nom">
-              <Input name="name" required placeholder="Plaquettes de frein avant" />
+              <Input
+                name="name"
+                required
+                autoFocus
+                placeholder="Plaquettes de frein avant"
+              />
+            </Field>
+
+            <Field label="Quantité en stock">
+              <Input
+                name="stockQty"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                defaultValue={0}
+                className="text-2xl font-bold"
+              />
+            </Field>
+          </div>
+        </Card>
+
+        <details className="rounded-card border border-slate-200 bg-white p-4 shadow-sm">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+            Détails facultatifs
+          </summary>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="Marque">
+              <Input name="brand" />
+            </Field>
+            <Field label="Emplacement" hint="Rayon, bac, étagère">
+              <Input name="location" placeholder="R1-A3" />
             </Field>
             <Field label="Catégorie">
-              <Select name="category" defaultValue="PIECE">
+              <Select name="category" defaultValue="AUTRE">
                 {options(PRODUCT_CATEGORIES).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
@@ -50,35 +83,15 @@ export default async function NewProductPage({
                 ))}
               </Select>
             </Field>
-            <Field label="Marque">
-              <Input name="brand" />
-            </Field>
-            <Field label="Code-barres">
-              <Input name="barcode" inputMode="numeric" />
-            </Field>
-            <Field label="Emplacement" hint="Rayon, bac, étagère">
-              <Input name="location" placeholder="R1-A3" />
-            </Field>
-            <Field label="Prix d'achat HT (€)">
-              <Input name="purchasePrice" type="number" step="0.01" min={0} defaultValue={0} />
-            </Field>
-            <Field label="Prix de vente TTC (€)">
-              <Input name="salePrice" type="number" step="0.01" min={0} defaultValue={0} />
-            </Field>
-            <Field label="TVA (%)">
-              <Input name="vatRate" type="number" step="0.1" min={0} defaultValue={20} />
-            </Field>
-            <Field label="Seuil d'alerte">
+            <Field label="Seuil d'alerte" hint="Prévenir quand le stock descend à ce niveau">
               <Input name="stockAlert" type="number" min={0} defaultValue={0} />
             </Field>
-            <Field label="Stock initial" hint="Enregistré comme mouvement d'inventaire">
-              <Input name="stockQty" type="number" min={0} defaultValue={0} />
-            </Field>
-            <Field label="Description" className="sm:col-span-2">
-              <Textarea name="description" rows={3} />
+            <Field label="Notes" className="sm:col-span-2">
+              <Textarea name="notes" rows={2} />
             </Field>
           </div>
-        </Card>
+        </details>
+
         <button type="submit" className={buttonClass}>
           Créer le produit
         </button>

@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { Alert, Field, Input, buttonClass } from "@/components/ui";
 import { loginAction } from "@/lib/actions/auth";
 import { getSessionUser } from "@/lib/auth";
-import { Alert, Field, Input, buttonClass } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export default async function LoginPage({
   if (await getSessionUser()) redirect("/admin");
 
   return (
-    <main className="bg-asphalt flex min-h-dvh items-center justify-center px-4 py-12">
+    <main className="flex min-h-dvh items-center justify-center bg-slate-50 px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <img
@@ -29,15 +29,15 @@ export default async function LoginPage({
             height={72}
             className="mx-auto h-18 w-18 rounded-xl"
           />
-          <h1 className="text-gilded mt-4 text-3xl font-bold">Espace atelier</h1>
-          <p className="mt-1 text-sm text-ink-400">
+          <h1 className="text-gilded-ink mt-4 text-3xl font-bold">Espace atelier</h1>
+          <p className="mt-1 text-sm text-slate-500">
             Réservé à l&apos;équipe Asphalte
           </p>
         </div>
 
         <form
           action={loginAction}
-          className="space-y-4 rounded-card border border-ink-800 bg-ink-900/70 p-6"
+          className="space-y-4 rounded-card border border-slate-200 bg-white p-6 shadow-sm"
         >
           {error ? <Alert>{error}</Alert> : null}
 
@@ -69,7 +69,7 @@ export default async function LoginPage({
 
         <Link
           href="/"
-          className="mt-6 block text-center text-sm text-ink-400 underline underline-offset-4 hover:text-gold-400"
+          className="mt-6 block text-center text-sm text-slate-500 underline underline-offset-4 hover:text-slate-900"
         >
           Retour au site
         </Link>

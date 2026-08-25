@@ -1,6 +1,5 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -10,49 +9,66 @@ import {
   checkbox,
   failWith,
   integer,
-  number,
   optionalText,
   pickEnum,
   text,
 } from "@/lib/form";
 import { PRODUCT_CATEGORIES } from "@/lib/labels";
+import { nextSku } from "@/lib/sku";
 import { applyStockMovement } from "@/lib/stock";
 import { saveImage, UploadError } from "@/lib/upload";
 
+/**
+ * Création d'un produit réduite à l'essentiel : un nom, une photo,
+ * une quantité. Tout le reste est optionnel.
+ */
 export async function createProductAction(formData: FormData): Promise<void> {
   const user = await requireUser();
 
-  const sku = text(formData, "sku").toUpperCase();
+  const origin = text(formData, "origin") || "/admin/produits/nouveau";
   const name = text(formData, "name");
-
-  if (!sku || !name) {
-    failWith("/admin/produits/nouveau", "La référence et le nom sont obligatoires.");
-  }
-
-  if (await prisma.product.findUnique({ where: { sku } })) {
-    failWith("/admin/produits/nouveau", `La référence ${sku} existe déjà.`);
-  }
+  if (!name) failWith(origin, "Le nom du produit est obligatoire.");
 
   const stockQty = integer(formData, "stockQty", 0);
 
   const product = await prisma.product.create({
     data: {
-      sku,
+      sku: await nextSku(),
       name,
-      description: optionalText(formData, "description"),
-      category: pickEnum(PRODUCT_CATEGORIES, text(formData, "category"), "PIECE"),
+      notes: optionalText(formData, "notes"),
+      category: pickEnum(PRODUCT_CATEGORIES, text(formData, "category"), "AUTRE"),
       brand: optionalText(formData, "brand"),
-      barcode: optionalText(formData, "barcode"),
       location: optionalText(formData, "location"),
-      purchasePrice: new Prisma.Decimal(number(formData, "purchasePrice", 0)),
-      salePrice: new Prisma.Decimal(number(formData, "salePrice", 0)),
-      vatRate: new Prisma.Decimal(number(formData, "vatRate", 20)),
       stockAlert: integer(formData, "stockAlert", 0),
       stockQty: 0,
     },
   });
 
-  if (stockQty !== 0) {
+  // Photo prise directement depuis le téléphone, si elle est fournie
+  const photo = formData.get("photo");
+  if (photo instanceof File && photo.size > 0) {
+    try {
+      const url = await saveImage(photo);
+      await prisma.productPhoto.create({
+        data: { productId: product.id, url, alt: name, position: 0 },
+      });
+    } catch (error) {
+      // La fiche est créée : on signale l'échec sans perdre la saisie.
+      await prisma.product.update({
+        where: { id: product.id },
+        data: {
+          notes: [
+            product.notes,
+            error instanceof UploadError ? `Photo refusée : ${error.message}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        },
+      });
+    }
+  }
+
+  if (stockQty > 0) {
     await prisma.$transaction(async (tx) => {
       await applyStockMovement(tx, {
         productId: product.id,
@@ -79,14 +95,10 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     where: { id },
     data: {
       name: text(formData, "name"),
-      description: optionalText(formData, "description"),
-      category: pickEnum(PRODUCT_CATEGORIES, text(formData, "category"), "PIECE"),
+      notes: optionalText(formData, "notes"),
+      category: pickEnum(PRODUCT_CATEGORIES, text(formData, "category"), "AUTRE"),
       brand: optionalText(formData, "brand"),
-      barcode: optionalText(formData, "barcode"),
       location: optionalText(formData, "location"),
-      purchasePrice: new Prisma.Decimal(number(formData, "purchasePrice", 0)),
-      salePrice: new Prisma.Decimal(number(formData, "salePrice", 0)),
-      vatRate: new Prisma.Decimal(number(formData, "vatRate", 20)),
       stockAlert: integer(formData, "stockAlert", 0),
       active: checkbox(formData, "active"),
     },
@@ -97,14 +109,19 @@ export async function updateProductAction(formData: FormData): Promise<void> {
   redirect(target);
 }
 
-/** Correction manuelle de stock (casse, erreur d'inventaire, retour…). */
+/**
+ * Correction de stock. `delta` sert aux boutons +1 / −1 de la fiche,
+ * `quantity` au champ libre.
+ */
 export async function adjustStockAction(formData: FormData): Promise<void> {
   const user = await requireUser();
 
   const productId = text(formData, "productId");
   const target = `/admin/produits/${productId}`;
-  const quantity = integer(formData, "quantity", 0);
-  const reason = text(formData, "reason");
+
+  const delta = integer(formData, "delta", 0);
+  const quantity = delta !== 0 ? delta : integer(formData, "quantity", 0);
+  const reason = text(formData, "reason") || (delta !== 0 ? "Correction rapide" : "");
 
   if (quantity === 0) {
     failWith(target, "Indiquez une quantité différente de zéro (négative pour une sortie).");
@@ -145,7 +162,7 @@ export async function addProductPhotoAction(formData: FormData): Promise<void> {
   const target = `/admin/produits/${productId}`;
   const file = formData.get("photo");
 
-  if (!(file instanceof File)) {
+  if (!(file instanceof File) || file.size === 0) {
     failWith(target, "Aucune photo sélectionnée.");
   }
 
@@ -165,6 +182,7 @@ export async function addProductPhotoAction(formData: FormData): Promise<void> {
   });
 
   revalidatePath(target);
+  revalidatePath("/admin/produits");
   redirect(target);
 }
 

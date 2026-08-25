@@ -15,25 +15,21 @@ import {
   Textarea,
   buttonClass,
   buttonDangerClass,
+  buttonGoldClass,
 } from "@/components/ui";
 import {
-  addInterventionLineAction,
-  deleteInterventionLineAction,
+  addInterventionPartAction,
+  deleteInterventionPartAction,
+  saveInterventionServicesAction,
   updateInterventionAction,
 } from "@/lib/actions/interventions";
 import { prisma } from "@/lib/db";
-import {
-  formatDate,
-  formatDateTime,
-  formatPlate,
-  formatPrice,
-  fullName,
-  toNumber,
-} from "@/lib/format";
+import { formatDate, formatDateTime, formatMileage, formatPlate, fullName } from "@/lib/format";
 import {
   INTERVENTION_STATUS_TONES,
   INTERVENTION_STATUSES,
   INTERVENTION_TYPES,
+  SERVICE_CATEGORIES,
   options,
 } from "@/lib/labels";
 
@@ -49,25 +45,38 @@ export default async function InterventionDetailPage({
   const { id } = await params;
   const { error, ok } = await searchParams;
 
-  const [intervention, products] = await Promise.all([
+  const [intervention, products, catalogue] = await Promise.all([
     prisma.intervention.findUnique({
       where: { id },
       include: {
         client: true,
         vehicle: true,
-        lines: { include: { product: true } },
+        parts: { include: { product: true } },
+        services: { orderBy: { label: "asc" } },
       },
     }),
     prisma.product.findMany({
       where: { active: true },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, sku: true, stockQty: true, salePrice: true },
+      select: { id: true, name: true, stockQty: true },
+    }),
+    prisma.serviceTask.findMany({
+      where: { active: true },
+      orderBy: [{ category: "asc" }, { position: "asc" }],
     }),
   ]);
 
   if (!intervention) notFound();
 
-  const labor = toNumber(intervention.laborHours) * toNumber(intervention.laborRate);
+  const doneTaskIds = new Set(
+    intervention.services.map((service) => service.serviceTaskId).filter(Boolean),
+  );
+  const customServices = intervention.services.filter((s) => !s.serviceTaskId);
+
+  const grouped = catalogue.reduce<Record<string, typeof catalogue>>((acc, task) => {
+    (acc[task.category] ??= []).push(task);
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-6">
@@ -88,6 +97,70 @@ export default async function InterventionDetailPage({
 
       <Flash error={error} ok={ok} />
 
+      {/* Prestations : tout se coche, une seule validation */}
+      <Card title="Prestations réalisées">
+        <form action={saveInterventionServicesAction} className="space-y-5">
+          <input type="hidden" name="interventionId" value={id} />
+
+          {options(SERVICE_CATEGORIES).map(([category, label]) => {
+            const tasks = grouped[category];
+            if (!tasks || tasks.length === 0) return null;
+
+            return (
+              <fieldset key={category}>
+                <legend className="text-xs font-semibold tracking-[0.1em] text-slate-500 uppercase">
+                  {label}
+                </legend>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {tasks.map((task) => (
+                    <label
+                      key={task.id}
+                      className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition-colors select-none hover:border-gold-400 has-checked:border-gold-500 has-checked:bg-gold-50 has-checked:font-semibold has-checked:text-gold-900"
+                    >
+                      <input
+                        type="checkbox"
+                        name="serviceTaskId"
+                        value={task.id}
+                        defaultChecked={doneTaskIds.has(task.id)}
+                        className="h-4 w-4 accent-gold-600"
+                      />
+                      {task.name}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            );
+          })}
+
+          <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-end">
+            <Field label="Autre prestation" className="flex-1">
+              <Input
+                name="customService"
+                placeholder="Ex. remplacement du câble d'embrayage"
+              />
+            </Field>
+            <button type="submit" className={buttonGoldClass}>
+              Enregistrer les prestations
+            </button>
+          </div>
+        </form>
+
+        {customServices.length > 0 ? (
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            <p className="text-xs font-semibold tracking-[0.1em] text-slate-500 uppercase">
+              Prestations saisies à la main
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {customServices.map((service) => (
+                <li key={service.id}>
+                  <Badge tone="gold">{service.label}</Badge>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </Card>
+
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Dossier">
           <dl>
@@ -96,7 +169,7 @@ export default async function InterventionDetailPage({
               value={
                 <Link
                   href={`/admin/clients/${intervention.clientId}`}
-                  className="text-gold-300 hover:underline"
+                  className="text-gold-700 hover:underline"
                 >
                   {fullName(intervention.client)}
                 </Link>
@@ -106,9 +179,17 @@ export default async function InterventionDetailPage({
             <DataRow
               label="Véhicule"
               value={
-                intervention.vehicle
-                  ? `${intervention.vehicle.brand} ${intervention.vehicle.model} — ${formatPlate(intervention.vehicle.plate)}`
-                  : "—"
+                intervention.vehicle ? (
+                  <Link
+                    href={`/admin/vehicules/${intervention.vehicle.id}`}
+                    className="text-gold-700 hover:underline"
+                  >
+                    {intervention.vehicle.brand} {intervention.vehicle.model} —{" "}
+                    {formatPlate(intervention.vehicle.plate)}
+                  </Link>
+                ) : (
+                  "—"
+                )
               }
             />
             <DataRow label="Ouvert le" value={formatDate(intervention.createdAt)} />
@@ -122,56 +203,39 @@ export default async function InterventionDetailPage({
             {intervention.dropoffLocation ? (
               <DataRow label="Restitution" value={intervention.dropoffLocation} />
             ) : null}
-            <DataRow
-              label="Kilométrage"
-              value={
-                intervention.mileage
-                  ? `${intervention.mileage.toLocaleString("fr-FR")} km`
-                  : "—"
-              }
-            />
+            <DataRow label="Kilométrage" value={formatMileage(intervention.mileage)} />
           </dl>
-
-          <dl className="mt-4 border-t border-ink-800 pt-3">
-            <DataRow
-              label="Main-d'œuvre"
-              value={`${toNumber(intervention.laborHours)} h × ${formatPrice(intervention.laborRate)} = ${formatPrice(labor)}`}
-            />
-            <DataRow label="Pièces" value={formatPrice(intervention.partsTotal)} />
-            <DataRow
-              label="Total"
-              value={
-                <span className="text-base font-bold text-gold-300">
-                  {formatPrice(intervention.totalAmount)}
-                </span>
-              }
-            />
-          </dl>
+          {intervention.description ? (
+            <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm whitespace-pre-line text-slate-600">
+              {intervention.description}
+            </p>
+          ) : null}
         </Card>
 
-        <Card title="Pièces et prestations" className="lg:col-span-2">
-          {intervention.lines.length === 0 ? (
-            <Empty>Aucune ligne. Ajoutez une pièce du stock ou une prestation.</Empty>
+        <Card title="Pièces montées" className="lg:col-span-2">
+          {intervention.parts.length === 0 ? (
+            <Empty>Aucune pièce. Ajoutez celles sorties du stock.</Empty>
           ) : (
-            <ul className="divide-y divide-ink-800">
-              {intervention.lines.map((line) => (
+            <ul className="divide-y divide-slate-100">
+              {intervention.parts.map((part) => (
                 <li
-                  key={line.id}
+                  key={part.id}
                   className="flex flex-wrap items-center justify-between gap-3 py-2.5"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm text-ink-100">{line.label}</p>
-                    <p className="text-xs text-ink-500">
-                      {toNumber(line.quantity)} × {formatPrice(line.unitPrice)}
-                      {line.product ? ` · ${line.product.sku} (stock)` : " · hors stock"}
+                    <p className="truncate text-sm font-medium text-slate-900">
+                      {part.label}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {part.product ? "Sortie du stock" : "Hors stock"}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-ink-100">
-                      {formatPrice(toNumber(line.quantity) * toNumber(line.unitPrice))}
+                    <span className="text-sm font-semibold text-slate-900">
+                      ×{part.quantity}
                     </span>
-                    <form action={deleteInterventionLineAction}>
-                      <input type="hidden" name="id" value={line.id} />
+                    <form action={deleteInterventionPartAction}>
+                      <input type="hidden" name="id" value={part.id} />
                       <button type="submit" className={buttonDangerClass}>
                         Retirer
                       </button>
@@ -183,21 +247,21 @@ export default async function InterventionDetailPage({
           )}
 
           <form
-            action={addInterventionLineAction}
-            className="mt-4 space-y-3 rounded-lg border border-ink-800 p-3"
+            action={addInterventionPartAction}
+            className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
           >
             <input type="hidden" name="interventionId" value={id} />
-            <p className="text-xs text-ink-400">
+            <p className="text-xs text-slate-500">
               Une pièce choisie au catalogue sort automatiquement du stock, avec
               trace du dossier.
             </p>
             <div className="grid gap-3 sm:grid-cols-4">
               <Field label="Pièce du stock" className="sm:col-span-2">
                 <Select name="productId" defaultValue="">
-                  <option value="">— Prestation hors stock —</option>
+                  <option value="">— Pièce hors stock —</option>
                   {products.map((product) => (
                     <option key={product.id} value={product.id}>
-                      {product.name} ({product.sku}) — {product.stockQty} en stock
+                      {product.name} ({product.stockQty} en stock)
                     </option>
                   ))}
                 </Select>
@@ -206,14 +270,11 @@ export default async function InterventionDetailPage({
                 <Input name="label" />
               </Field>
               <Field label="Quantité">
-                <Input name="quantity" type="number" step="0.5" min={0.5} defaultValue={1} />
-              </Field>
-              <Field label="Prix unitaire (€)" hint="Vide = prix catalogue">
-                <Input name="unitPrice" type="number" step="0.01" min={0} />
+                <Input name="quantity" type="number" min={1} defaultValue={1} />
               </Field>
             </div>
             <button type="submit" className={buttonClass}>
-              Ajouter la ligne
+              Ajouter la pièce
             </button>
           </form>
         </Card>
@@ -243,24 +304,6 @@ export default async function InterventionDetailPage({
                   </option>
                 ))}
               </Select>
-            </Field>
-            <Field label="Heures de main-d'œuvre">
-              <Input
-                name="laborHours"
-                type="number"
-                step="0.25"
-                min={0}
-                defaultValue={toNumber(intervention.laborHours)}
-              />
-            </Field>
-            <Field label="Taux horaire (€)">
-              <Input
-                name="laborRate"
-                type="number"
-                step="0.01"
-                min={0}
-                defaultValue={toNumber(intervention.laborRate)}
-              />
             </Field>
             <Field label="Lieu de prise en charge">
               <Input

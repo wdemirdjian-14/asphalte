@@ -94,7 +94,6 @@ export async function searchAll(query: string, scope: SearchScope = "tout") {
               { sku: contains },
               { name: contains },
               { brand: contains },
-              { barcode: { contains: q } },
               { location: contains },
             ],
           },

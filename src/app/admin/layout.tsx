@@ -16,8 +16,8 @@ export default async function AdminLayout({
   const user = await requireUser();
 
   return (
-    <div className="min-h-dvh">
-      <header className="sticky top-0 z-40 border-b border-ink-800 bg-ink-950/90 backdrop-blur">
+    <div className="min-h-dvh bg-slate-50 text-slate-900">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
           <Link href="/admin" className="flex items-center gap-2">
             <img
@@ -27,20 +27,20 @@ export default async function AdminLayout({
               height={32}
               className="h-8 w-8 rounded-md"
             />
-            <span className="text-gilded text-lg font-bold">Asphalte</span>
+            <span className="text-gilded-ink text-lg font-bold">Asphalte</span>
           </Link>
-          <span className="hidden text-xs tracking-[0.16em] text-ink-500 uppercase sm:inline">
+          <span className="hidden text-xs tracking-[0.14em] text-slate-400 uppercase sm:inline">
             Espace atelier
           </span>
 
           <div className="ml-auto flex items-center gap-3">
-            <span className="hidden text-sm text-ink-400 sm:inline">
+            <span className="hidden text-sm text-slate-500 sm:inline">
               {user.name}
             </span>
             <form action={logoutAction}>
               <button
                 type="submit"
-                className="rounded-lg border border-ink-700 px-3 py-1.5 text-xs text-ink-300 hover:border-gold-500/50 hover:text-gold-300"
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
               >
                 Déconnexion
               </button>

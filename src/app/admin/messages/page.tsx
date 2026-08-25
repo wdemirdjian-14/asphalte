@@ -68,16 +68,16 @@ export default async function MessagesPage({
               <Card>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink-100">
+                    <p className="text-sm font-semibold text-slate-900">
                       {message.name}
                       {message.subject ? (
-                        <span className="ml-2 text-xs text-ink-400">
+                        <span className="ml-2 text-xs text-slate-500">
                           {message.subject}
                         </span>
                       ) : null}
                     </p>
-                    <p className="mt-0.5 text-xs text-ink-400">
-                      <a href={telHref(message.phone)} className="text-gold-300 hover:underline">
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      <a href={telHref(message.phone)} className="text-gold-700 hover:underline">
                         {message.phone}
                       </a>
                       {message.email ? ` · ${message.email}` : ""} ·{" "}
@@ -94,7 +94,7 @@ export default async function MessagesPage({
                   </div>
                 </div>
 
-                <p className="mt-3 rounded-lg border border-ink-800 bg-ink-950/60 p-3 text-sm whitespace-pre-line text-ink-200">
+                <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm whitespace-pre-line text-slate-700">
                   {message.message}
                 </p>
 

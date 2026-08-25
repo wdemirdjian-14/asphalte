@@ -73,7 +73,7 @@ export default async function AdminDashboard() {
         <Card
           title="Dernières interventions"
           action={
-            <Link href="/admin/interventions" className="text-xs text-ink-400 hover:text-gold-300">
+            <Link href="/admin/interventions" className="text-xs text-slate-500 hover:text-gold-700">
               Tout voir
             </Link>
           }
@@ -81,18 +81,18 @@ export default async function AdminDashboard() {
           {recentInterventions.length === 0 ? (
             <Empty>Aucune intervention enregistrée.</Empty>
           ) : (
-            <ul className="divide-y divide-ink-800">
+            <ul className="divide-y divide-slate-100">
               {recentInterventions.map((intervention) => (
                 <li key={intervention.id}>
                   <Link
                     href={`/admin/interventions/${intervention.id}`}
-                    className="flex items-center justify-between gap-3 py-3 hover:text-gold-300"
+                    className="flex items-center justify-between gap-3 py-3 hover:text-gold-700"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-ink-100">
+                      <p className="truncate text-sm font-medium text-slate-900">
                         {intervention.title}
                       </p>
-                      <p className="mt-0.5 truncate text-xs text-ink-400">
+                      <p className="mt-0.5 truncate text-xs text-slate-500">
                         {intervention.reference} · {fullName(intervention.client)}
                         {intervention.vehicle
                           ? ` · ${formatPlate(intervention.vehicle.plate)}`
@@ -103,7 +103,7 @@ export default async function AdminDashboard() {
                       <Badge tone={INTERVENTION_STATUS_TONES[intervention.status]}>
                         {INTERVENTION_STATUSES[intervention.status]}
                       </Badge>
-                      <p className="mt-1 text-xs text-ink-500">
+                      <p className="mt-1 text-xs text-slate-9000">
                         {INTERVENTION_TYPES[intervention.type]}
                       </p>
                     </div>
@@ -118,7 +118,7 @@ export default async function AdminDashboard() {
           <Card
             title="Stock au plus bas"
             action={
-              <Link href="/admin/produits" className="text-xs text-ink-400 hover:text-gold-300">
+              <Link href="/admin/produits" className="text-xs text-slate-500 hover:text-gold-700">
                 Catalogue
               </Link>
             }
@@ -126,16 +126,16 @@ export default async function AdminDashboard() {
             {lowStock.length === 0 ? (
               <Empty>Aucun produit sous son seuil d&apos;alerte.</Empty>
             ) : (
-              <ul className="divide-y divide-ink-800">
+              <ul className="divide-y divide-slate-100">
                 {lowStock.map((product) => (
                   <li key={product.id}>
                     <Link
                       href={`/admin/produits/${product.id}`}
-                      className="flex items-center justify-between gap-3 py-2.5 hover:text-gold-300"
+                      className="flex items-center justify-between gap-3 py-2.5 hover:text-gold-700"
                     >
-                      <span className="min-w-0 truncate text-sm text-ink-100">
+                      <span className="min-w-0 truncate text-sm text-slate-900">
                         {product.name}
-                        <span className="ml-2 text-xs text-ink-500">{product.sku}</span>
+                        <span className="ml-2 text-xs text-slate-9000">{product.sku}</span>
                       </span>
                       <Badge tone={product.stockQty <= 0 ? "red" : "gold"}>
                         {product.stockQty} / seuil {product.stockAlert}
@@ -150,7 +150,7 @@ export default async function AdminDashboard() {
           <Card
             title="Messages du site"
             action={
-              <Link href="/admin/messages" className="text-xs text-ink-400 hover:text-gold-300">
+              <Link href="/admin/messages" className="text-xs text-slate-500 hover:text-gold-700">
                 Tout voir
               </Link>
             }
@@ -158,16 +158,16 @@ export default async function AdminDashboard() {
             {recentMessages.length === 0 ? (
               <Empty>Aucun nouveau message.</Empty>
             ) : (
-              <ul className="divide-y divide-ink-800">
+              <ul className="divide-y divide-slate-100">
                 {recentMessages.map((message) => (
                   <li key={message.id} className="py-3">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-ink-100">{message.name}</p>
-                      <span className="text-xs text-ink-500">
+                      <p className="text-sm font-medium text-slate-900">{message.name}</p>
+                      <span className="text-xs text-slate-9000">
                         {formatDate(message.createdAt)}
                       </span>
                     </div>
-                    <p className="mt-1 line-clamp-2 text-xs text-ink-400">
+                    <p className="mt-1 line-clamp-2 text-xs text-slate-500">
                       {message.message}
                     </p>
                   </li>
@@ -197,12 +197,12 @@ function Stat({
       href={href}
       className={`rounded-card border px-4 py-4 transition-colors ${
         highlight
-          ? "border-gold-500/50 bg-gold-500/10"
-          : "border-ink-800 bg-ink-900/60 hover:border-gold-500/30"
+          ? "border-gold-400 bg-gold-50"
+          : "border-slate-200 bg-white hover:border-gold-400"
       }`}
     >
-      <p className="text-[11px] tracking-[0.14em] text-ink-400 uppercase">{label}</p>
-      <p className="text-gilded mt-1 text-3xl font-bold">{value}</p>
+      <p className="text-[11px] tracking-[0.14em] text-slate-500 uppercase">{label}</p>
+      <p className="mt-1 text-3xl font-bold text-slate-900">{value}</p>
     </Link>
   );
 }

@@ -6,7 +6,6 @@ export type MovementContext = {
   /** Signé : positif pour une entrée, négatif pour une sortie. */
   quantity: number;
   reason?: string | null;
-  unitCost?: Prisma.Decimal | number | null;
   receptionId?: string | null;
   saleId?: string | null;
   interventionId?: string | null;
@@ -45,7 +44,6 @@ export async function applyStockMovement(
       quantity: movement.quantity,
       stockBefore,
       stockAfter,
-      unitCost: movement.unitCost ?? null,
       reason: movement.reason ?? null,
       receptionId: movement.receptionId ?? null,
       saleId: movement.saleId ?? null,

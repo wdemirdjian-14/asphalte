@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { randomBytes, scryptSync } from "node:crypto";
 
 const prisma = new PrismaClient();
@@ -8,7 +8,48 @@ function hashPassword(password: string): string {
   return `scrypt$${salt}$${scryptSync(password, salt, 64).toString("hex")}`;
 }
 
-const d = (value: string | number) => new Prisma.Decimal(value);
+/**
+ * Catalogue des prestations proposées à l'atelier. Ce sont les cases à
+ * cocher d'une révision : l'objectif est d'enregistrer une maintenance en
+ * quelques clics, sans rien saisir au clavier.
+ */
+const SERVICE_TASKS: { name: string; category: string }[] = [
+  { name: "Vidange moteur", category: "ENTRETIEN" },
+  { name: "Filtre à huile", category: "ENTRETIEN" },
+  { name: "Filtre à air", category: "ENTRETIEN" },
+  { name: "Bougie(s)", category: "ENTRETIEN" },
+  { name: "Contrôle des niveaux", category: "ENTRETIEN" },
+  { name: "Graissage général", category: "ENTRETIEN" },
+
+  { name: "Plaquettes avant", category: "FREINAGE" },
+  { name: "Plaquettes arrière", category: "FREINAGE" },
+  { name: "Disque avant", category: "FREINAGE" },
+  { name: "Disque arrière", category: "FREINAGE" },
+  { name: "Purge liquide de frein", category: "FREINAGE" },
+
+  { name: "Pneu avant", category: "PNEUMATIQUE" },
+  { name: "Pneu arrière", category: "PNEUMATIQUE" },
+  { name: "Contrôle des pressions", category: "PNEUMATIQUE" },
+  { name: "Équilibrage", category: "PNEUMATIQUE" },
+
+  { name: "Chaîne, couronne et pignon", category: "TRANSMISSION" },
+  { name: "Tension de chaîne", category: "TRANSMISSION" },
+  { name: "Graissage de chaîne", category: "TRANSMISSION" },
+  { name: "Courroie de transmission", category: "TRANSMISSION" },
+  { name: "Galets de variateur", category: "TRANSMISSION" },
+
+  { name: "Réglage des soupapes", category: "MOTEUR" },
+  { name: "Nettoyage injection / carburateur", category: "MOTEUR" },
+  { name: "Liquide de refroidissement", category: "MOTEUR" },
+
+  { name: "Batterie", category: "ELECTRIQUE" },
+  { name: "Ampoules", category: "ELECTRIQUE" },
+  { name: "Diagnostic électrique", category: "ELECTRIQUE" },
+
+  { name: "Contrôle général", category: "CONTROLE" },
+  { name: "Contrôle avant grand trajet", category: "CONTROLE" },
+  { name: "Serrage général", category: "CONTROLE" },
+];
 
 async function main() {
   // --- Compte administrateur ------------------------------------------------
@@ -23,6 +64,18 @@ async function main() {
   });
   console.log(`Administrateur : ${admin.email}`);
 
+  // --- Catalogue des prestations (toujours installé) ------------------------
+  let position = 0;
+  for (const task of SERVICE_TASKS) {
+    position += 1;
+    await prisma.serviceTask.upsert({
+      where: { name: task.name },
+      update: { category: task.category as never, position },
+      create: { name: task.name, category: task.category as never, position },
+    });
+  }
+  console.log(`Prestations au catalogue : ${SERVICE_TASKS.length}`);
+
   if (process.env.SEED_DEMO === "false") {
     console.log("Jeu de démonstration ignoré (SEED_DEMO=false).");
     return;
@@ -34,39 +87,28 @@ async function main() {
   }
 
   // --- Fournisseurs ---------------------------------------------------------
-  const [motoParts, pneuExpress] = await Promise.all([
-    prisma.supplier.create({
-      data: { name: "Moto Parts Diffusion", phone: "01 46 00 00 01", email: "commandes@motoparts.example" },
-    }),
-    prisma.supplier.create({
-      data: { name: "Pneu Express Pro", phone: "01 46 00 00 02" },
-    }),
-  ]);
+  const motoParts = await prisma.supplier.create({
+    data: { name: "Moto Parts Diffusion", phone: "01 46 00 00 01" },
+  });
+  await prisma.supplier.create({
+    data: { name: "Pneu Express Pro", phone: "01 46 00 00 02" },
+  });
 
   // --- Catalogue produits ---------------------------------------------------
   const products = await Promise.all(
     [
-      { sku: "PLQ-AV-STD", name: "Plaquettes de frein avant (jeu)", category: "PIECE" as const, brand: "Brembo", purchasePrice: 18.4, salePrice: 39.9, stockQty: 12, stockAlert: 4, location: "R1-A3" },
-      { sku: "HUI-10W40-4L", name: "Huile moteur 10W40 synthèse — 4 L", category: "LUBRIFIANT" as const, brand: "Motul", purchasePrice: 26.5, salePrice: 54.9, stockQty: 8, stockAlert: 3, location: "R2-B1" },
-      { sku: "PNE-120-70-17", name: "Pneu avant 120/70-17", category: "PNEU" as const, brand: "Michelin", purchasePrice: 88, salePrice: 149, stockQty: 4, stockAlert: 2, location: "Stock pneus" },
-      { sku: "BAT-YTX12", name: "Batterie YTX12-BS", category: "PIECE" as const, brand: "Yuasa", purchasePrice: 42, salePrice: 89, stockQty: 2, stockAlert: 3, location: "R1-C2" },
-      { sku: "KIT-CHAINE-525", name: "Kit chaîne 525 (couronne + pignon)", category: "PIECE" as const, brand: "DID", purchasePrice: 96, salePrice: 189, stockQty: 3, stockAlert: 2, location: "R3-A1" },
-      { sku: "ACC-TOPCASE-39", name: "Top-case 39 L avec platine", category: "ACCESSOIRE" as const, brand: "Shad", purchasePrice: 74, salePrice: 139, stockQty: 5, stockAlert: 2, location: "Vitrine" },
-      { sku: "CON-FILTRE-HUILE", name: "Filtre à huile universel", category: "CONSOMMABLE" as const, purchasePrice: 4.2, salePrice: 12.5, stockQty: 24, stockAlert: 10, location: "R1-A1" },
-    ].map((p) =>
-      prisma.product.create({
-        data: {
-          ...p,
-          purchasePrice: d(p.purchasePrice),
-          salePrice: d(p.salePrice),
-        },
-      }),
-    ),
+      { sku: "P-0001", name: "Plaquettes de frein avant", category: "PIECE" as const, brand: "Brembo", stockQty: 12, stockAlert: 4, location: "R1-A3" },
+      { sku: "P-0002", name: "Huile moteur 10W40 — 4 L", category: "LUBRIFIANT" as const, brand: "Motul", stockQty: 8, stockAlert: 3, location: "R2-B1" },
+      { sku: "P-0003", name: "Pneu avant 120/70-17", category: "PNEU" as const, brand: "Michelin", stockQty: 4, stockAlert: 2, location: "Stock pneus" },
+      { sku: "P-0004", name: "Batterie YTX12-BS", category: "PIECE" as const, brand: "Yuasa", stockQty: 2, stockAlert: 3, location: "R1-C2" },
+      { sku: "P-0005", name: "Kit chaîne 525", category: "PIECE" as const, brand: "DID", stockQty: 3, stockAlert: 2, location: "R3-A1" },
+      { sku: "P-0006", name: "Top-case 39 L", category: "ACCESSOIRE" as const, brand: "Shad", stockQty: 5, stockAlert: 2, location: "Vitrine" },
+      { sku: "P-0007", name: "Filtre à huile universel", category: "CONSOMMABLE" as const, stockQty: 24, stockAlert: 10, location: "R1-A1" },
+    ].map((p) => prisma.product.create({ data: p })),
   );
 
   const bySku = Object.fromEntries(products.map((p) => [p.sku, p]));
 
-  // Stock initial tracé comme un inventaire d'ouverture
   await prisma.stockMovement.createMany({
     data: products.map((product) => ({
       productId: product.id,
@@ -80,9 +122,7 @@ async function main() {
     })),
   });
 
-  // --- Clients, véhicules, interventions, ventes ----------------------------
-  const year = new Date().getFullYear();
-
+  // --- Clients et véhicules -------------------------------------------------
   const dupont = await prisma.client.create({
     data: {
       firstName: "Marc",
@@ -135,6 +175,9 @@ async function main() {
     include: { vehicles: true },
   });
 
+  const year = new Date().getFullYear();
+
+  // --- Un dépannage terminé, avec une pièce montée --------------------------
   const depannage = await prisma.intervention.create({
     data: {
       reference: `DEP-${year}-0001`,
@@ -149,38 +192,29 @@ async function main() {
       vehicleId: dupont.vehicles[0].id,
       completedAt: new Date(),
       mileage: 34200,
-      laborHours: d(1.5),
-      laborRate: d(70),
-      lines: {
+      parts: {
         create: [
-          {
-            productId: bySku["BAT-YTX12"].id,
-            label: "Batterie YTX12-BS",
-            quantity: d(1),
-            unitPrice: d(89),
-          },
+          { productId: bySku["P-0004"].id, label: "Batterie YTX12-BS", quantity: 1 },
         ],
+      },
+      services: {
+        create: [{ label: "Batterie" }, { label: "Contrôle général" }],
       },
     },
   });
 
-  await prisma.intervention.update({
-    where: { id: depannage.id },
-    data: { partsTotal: d(89), totalAmount: d(89 + 1.5 * 70) },
-  });
-
   await prisma.$transaction([
     prisma.product.update({
-      where: { id: bySku["BAT-YTX12"].id },
+      where: { id: bySku["P-0004"].id },
       data: { stockQty: { decrement: 1 } },
     }),
     prisma.stockMovement.create({
       data: {
-        productId: bySku["BAT-YTX12"].id,
+        productId: bySku["P-0004"].id,
         type: "INTERVENTION",
         quantity: -1,
-        stockBefore: bySku["BAT-YTX12"].stockQty,
-        stockAfter: bySku["BAT-YTX12"].stockQty - 1,
+        stockBefore: bySku["P-0004"].stockQty,
+        stockAfter: bySku["P-0004"].stockQty - 1,
         reason: `Montée sur ${depannage.reference}`,
         interventionId: depannage.id,
         userId: admin.id,
@@ -189,6 +223,7 @@ async function main() {
     }),
   ]);
 
+  // --- Une révision en cours ------------------------------------------------
   await prisma.intervention.create({
     data: {
       reference: `DEP-${year}-0002`,
@@ -198,43 +233,40 @@ async function main() {
       clientId: leroy.id,
       vehicleId: leroy.vehicles[0].id,
       mileage: 9800,
-      laborHours: d(2),
-      laborRate: d(70),
-      totalAmount: d(140),
+      services: {
+        create: [
+          { label: "Vidange moteur" },
+          { label: "Filtre à huile" },
+          { label: "Contrôle des pressions" },
+        ],
+      },
     },
   });
 
+  // --- Un accessoire remis au comptoir --------------------------------------
   const sale = await prisma.sale.create({
     data: {
       reference: `VTE-${year}-0001`,
       clientId: dupont.id,
-      totalAmount: d(139),
       lines: {
-        create: [
-          {
-            productId: bySku["ACC-TOPCASE-39"].id,
-            label: "Top-case 39 L avec platine",
-            quantity: d(1),
-            unitPrice: d(139),
-          },
-        ],
+        create: [{ productId: bySku["P-0006"].id, label: "Top-case 39 L", quantity: 1 }],
       },
     },
   });
 
   await prisma.$transaction([
     prisma.product.update({
-      where: { id: bySku["ACC-TOPCASE-39"].id },
+      where: { id: bySku["P-0006"].id },
       data: { stockQty: { decrement: 1 } },
     }),
     prisma.stockMovement.create({
       data: {
-        productId: bySku["ACC-TOPCASE-39"].id,
+        productId: bySku["P-0006"].id,
         type: "VENTE",
         quantity: -1,
-        stockBefore: bySku["ACC-TOPCASE-39"].stockQty,
-        stockAfter: bySku["ACC-TOPCASE-39"].stockQty - 1,
-        reason: `Vente ${sale.reference}`,
+        stockBefore: bySku["P-0006"].stockQty,
+        stockAfter: bySku["P-0006"].stockQty - 1,
+        reason: `Remis au client — ${sale.reference}`,
         saleId: sale.id,
         userId: admin.id,
         userLabel: admin.name,
@@ -255,25 +287,9 @@ async function main() {
       notes: "Colis reçu le matin, à contrôler avant mise en rayon.",
       lines: {
         create: [
-          { productId: bySku["PLQ-AV-STD"].id, expectedQty: 10, quantity: 10, unitCost: d(18.4) },
-          { productId: bySku["CON-FILTRE-HUILE"].id, expectedQty: 20, quantity: 18, unitCost: d(4.2), notes: "2 manquants sur le bon de livraison" },
-          { productId: bySku["HUI-10W40-4L"].id, expectedQty: 6, quantity: 6, unitCost: d(26.5) },
-        ],
-      },
-    },
-  });
-
-  await prisma.reception.create({
-    data: {
-      reference: `REC-${year}-0002`,
-      status: "BROUILLON",
-      supplierId: pneuExpress.id,
-      carrier: "DPD",
-      packageCount: 1,
-      receivedById: admin.id,
-      lines: {
-        create: [
-          { productId: bySku["PNE-120-70-17"].id, expectedQty: 4, quantity: 4, unitCost: d(88) },
+          { productId: bySku["P-0001"].id, quantity: 10 },
+          { productId: bySku["P-0007"].id, quantity: 18, notes: "2 manquants sur le bon de livraison" },
+          { productId: bySku["P-0002"].id, quantity: 6 },
         ],
       },
     },

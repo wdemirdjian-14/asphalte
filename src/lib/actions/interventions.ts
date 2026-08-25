@@ -1,6 +1,5 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -8,8 +7,8 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
   failWith,
+  integer,
   nextReference,
-  number,
   optionalInteger,
   optionalText,
   pickEnum,
@@ -19,24 +18,6 @@ import {
 import { INTERVENTION_STATUSES, INTERVENTION_TYPES } from "@/lib/labels";
 import { REF_PREFIX } from "@/lib/refs";
 import { applyStockMovement } from "@/lib/stock";
-
-async function recomputeTotals(interventionId: string): Promise<void> {
-  const intervention = await prisma.intervention.findUniqueOrThrow({
-    where: { id: interventionId },
-    include: { lines: true },
-  });
-
-  const partsTotal = intervention.lines.reduce(
-    (sum, line) => sum.add(line.unitPrice.mul(line.quantity)),
-    new Prisma.Decimal(0),
-  );
-  const labor = intervention.laborHours.mul(intervention.laborRate);
-
-  await prisma.intervention.update({
-    where: { id: interventionId },
-    data: { partsTotal, totalAmount: partsTotal.add(labor) },
-  });
-}
 
 export async function createInterventionAction(formData: FormData): Promise<void> {
   await requireUser();
@@ -69,12 +50,8 @@ export async function createInterventionAction(formData: FormData): Promise<void
       pickupLocation: optionalText(formData, "pickupLocation"),
       dropoffLocation: optionalText(formData, "dropoffLocation"),
       mileage: optionalInteger(formData, "mileage"),
-      laborHours: new Prisma.Decimal(number(formData, "laborHours", 0)),
-      laborRate: new Prisma.Decimal(number(formData, "laborRate", 70)),
     },
   });
-
-  await recomputeTotals(intervention.id);
 
   revalidatePath(`/admin/clients/${clientId}`);
   revalidatePath("/admin/interventions");
@@ -98,34 +75,94 @@ export async function updateInterventionAction(formData: FormData): Promise<void
       pickupLocation: optionalText(formData, "pickupLocation"),
       dropoffLocation: optionalText(formData, "dropoffLocation"),
       mileage: optionalInteger(formData, "mileage"),
-      laborHours: new Prisma.Decimal(number(formData, "laborHours", 0)),
-      laborRate: new Prisma.Decimal(number(formData, "laborRate", 70)),
       completedAt:
         status === "TERMINE" || status === "FACTURE" ? new Date() : null,
     },
   });
-
-  await recomputeTotals(id);
 
   revalidatePath(target);
   redirect(target);
 }
 
 /**
- * Ajoute une pièce à l'intervention. Si la pièce vient du stock, la sortie
- * est enregistrée et journalisée dans la même transaction.
+ * Prestations réalisées : une seule validation enregistre toutes les cases
+ * cochées du catalogue, plus une éventuelle prestation libre.
  */
-export async function addInterventionLineAction(formData: FormData): Promise<void> {
+export async function saveInterventionServicesAction(
+  formData: FormData,
+): Promise<void> {
+  await requireUser();
+
+  const interventionId = text(formData, "interventionId");
+  const target = `/admin/interventions/${interventionId}`;
+
+  const checked = formData
+    .getAll("serviceTaskId")
+    .map((value) => value.toString())
+    .filter(Boolean);
+
+  const tasks = await prisma.serviceTask.findMany({
+    where: { id: { in: checked } },
+  });
+
+  const custom = text(formData, "customService");
+
+  await prisma.$transaction(async (tx) => {
+    // Les prestations issues du catalogue sont remplacées par la sélection ;
+    // celles saisies à la main sont conservées.
+    await tx.interventionService.deleteMany({
+      where: { interventionId, serviceTaskId: { not: null } },
+    });
+
+    if (tasks.length > 0) {
+      await tx.interventionService.createMany({
+        data: tasks.map((task) => ({
+          interventionId,
+          serviceTaskId: task.id,
+          label: task.name,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    if (custom) {
+      await tx.interventionService.createMany({
+        data: [{ interventionId, label: custom }],
+        skipDuplicates: true,
+      });
+    }
+  });
+
+  revalidatePath(target);
+  redirect(target);
+}
+
+export async function deleteInterventionServiceAction(
+  formData: FormData,
+): Promise<void> {
+  await requireUser();
+
+  const id = text(formData, "id");
+  const service = await prisma.interventionService.delete({ where: { id } });
+  const target = `/admin/interventions/${service.interventionId}`;
+
+  revalidatePath(target);
+  redirect(target);
+}
+
+/**
+ * Ajoute une pièce à l'intervention. Une pièce du catalogue sort du stock
+ * et le mouvement reste rattaché au dossier.
+ */
+export async function addInterventionPartAction(formData: FormData): Promise<void> {
   const user = await requireUser();
 
   const interventionId = text(formData, "interventionId");
   const target = `/admin/interventions/${interventionId}`;
   const productId = optionalText(formData, "productId");
-  const quantity = number(formData, "quantity", 1);
+  const quantity = integer(formData, "quantity", 1);
 
-  if (quantity <= 0) {
-    failWith(target, "La quantité doit être supérieure à zéro.");
-  }
+  if (quantity <= 0) failWith(target, "La quantité doit être supérieure à zéro.");
 
   const intervention = await prisma.intervention.findUniqueOrThrow({
     where: { id: interventionId },
@@ -133,36 +170,28 @@ export async function addInterventionLineAction(formData: FormData): Promise<voi
   });
 
   let label = text(formData, "label");
-  let unitPrice = number(formData, "unitPrice", 0);
 
   if (productId) {
     const product = await prisma.product.findUniqueOrThrow({
       where: { id: productId },
     });
     label = label || product.name;
-    if (!formData.get("unitPrice")) unitPrice = Number(product.salePrice);
   }
 
   if (!label) {
-    failWith(target, "Indiquez un libellé ou choisissez un produit.");
+    failWith(target, "Indiquez un libellé ou choisissez une pièce du stock.");
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.interventionLine.create({
-      data: {
-        interventionId,
-        productId,
-        label,
-        quantity: new Prisma.Decimal(quantity),
-        unitPrice: new Prisma.Decimal(unitPrice),
-      },
+    await tx.interventionPart.create({
+      data: { interventionId, productId, label, quantity },
     });
 
     if (productId) {
       await applyStockMovement(tx, {
         productId,
         type: "INTERVENTION",
-        quantity: -Math.round(quantity),
+        quantity: -quantity,
         reason: `Montée sur ${intervention.reference}`,
         interventionId,
         userId: user.id,
@@ -171,44 +200,41 @@ export async function addInterventionLineAction(formData: FormData): Promise<voi
     }
   });
 
-  await recomputeTotals(interventionId);
-
   revalidatePath(target);
   revalidatePath("/admin/produits");
   redirect(target);
 }
 
-export async function deleteInterventionLineAction(
+export async function deleteInterventionPartAction(
   formData: FormData,
 ): Promise<void> {
   const user = await requireUser();
 
   const id = text(formData, "id");
-  const line = await prisma.interventionLine.findUniqueOrThrow({
+  const part = await prisma.interventionPart.findUniqueOrThrow({
     where: { id },
     include: { intervention: { select: { id: true, reference: true } } },
   });
-  const target = `/admin/interventions/${line.intervention.id}`;
+  const target = `/admin/interventions/${part.intervention.id}`;
 
   await prisma.$transaction(async (tx) => {
-    await tx.interventionLine.delete({ where: { id } });
+    await tx.interventionPart.delete({ where: { id } });
 
-    if (line.productId) {
+    if (part.productId) {
       // Retour en stock de la pièce retirée du dossier
       await applyStockMovement(tx, {
-        productId: line.productId,
+        productId: part.productId,
         type: "RETOUR",
-        quantity: Math.round(Number(line.quantity)),
-        reason: `Ligne retirée de ${line.intervention.reference}`,
-        interventionId: line.intervention.id,
+        quantity: part.quantity,
+        reason: `Pièce retirée de ${part.intervention.reference}`,
+        interventionId: part.intervention.id,
         userId: user.id,
         userLabel: user.name,
       });
     }
   });
 
-  await recomputeTotals(line.intervention.id);
-
   revalidatePath(target);
+  revalidatePath("/admin/produits");
   redirect(target);
 }

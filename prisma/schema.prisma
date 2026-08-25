@@ -134,9 +134,32 @@ model Vehicle {
   updatedAt    DateTime @updatedAt
 
   interventions Intervention[]
+  documents     VehicleDocument[]
 
   @@index([plate])
   @@index([brand, model])
+}
+
+enum VehicleDocumentKind {
+  CARTE_GRISE
+  ASSURANCE
+  FACTURE
+  PHOTO
+  AUTRE
+}
+
+/// Documents scannés ou photographiés d'un véhicule — la carte grise en
+/// premier lieu, pour ne plus avoir à la redemander au client.
+model VehicleDocument {
+  id        String              @id @default(cuid())
+  vehicleId String
+  vehicle   Vehicle             @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  url       String
+  kind      VehicleDocumentKind @default(CARTE_GRISE)
+  label     String              @default("")
+  createdAt DateTime            @default(now())
+
+  @@index([vehicleId, kind])
 }
 
 enum InterventionType {
@@ -167,36 +190,73 @@ model Intervention {
   vehicle     Vehicle?           @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
 
   // Spécifique dépannage
-  pickupLocation String?
+  pickupLocation  String?
   dropoffLocation String?
 
   scheduledAt DateTime?
   completedAt DateTime?
   mileage     Int?
-  laborHours  Decimal   @default(0) @db.Decimal(6, 2)
-  laborRate   Decimal   @default(0) @db.Decimal(10, 2)
-  partsTotal  Decimal   @default(0) @db.Decimal(10, 2)
-  totalAmount Decimal   @default(0) @db.Decimal(10, 2)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  lines          InterventionLine[]
+  parts          InterventionPart[]
+  services       InterventionService[]
   stockMovements StockMovement[]
 
   @@index([clientId, createdAt])
   @@index([status])
 }
 
-model InterventionLine {
+/// Pièce montée sur l'intervention. Sortie du stock si elle vient du catalogue.
+model InterventionPart {
   id             String       @id @default(cuid())
   interventionId String
   intervention   Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
   productId      String?
   product        Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
   label          String
-  quantity       Decimal      @default(1) @db.Decimal(10, 2)
-  unitPrice      Decimal      @default(0) @db.Decimal(10, 2)
+  quantity       Int          @default(1)
 
+  @@index([interventionId])
+}
+
+enum ServiceCategory {
+  ENTRETIEN
+  FREINAGE
+  PNEUMATIQUE
+  MOTEUR
+  TRANSMISSION
+  ELECTRIQUE
+  CONTROLE
+  AUTRE
+}
+
+/// Catalogue des prestations de l'atelier : ce sont les cases à cocher
+/// proposées sur une révision.
+model ServiceTask {
+  id       String          @id @default(cuid())
+  name     String          @unique
+  category ServiceCategory @default(ENTRETIEN)
+  position Int             @default(0)
+  active   Boolean         @default(true)
+
+  interventions InterventionService[]
+
+  @@index([category, position])
+}
+
+/// Prestation réellement effectuée sur une intervention.
+model InterventionService {
+  id             String       @id @default(cuid())
+  interventionId String
+  intervention   Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  serviceTaskId  String?
+  serviceTask    ServiceTask? @relation(fields: [serviceTaskId], references: [id], onDelete: SetNull)
+  label          String
+  notes          String?
+  createdAt      DateTime     @default(now())
+
+  @@unique([interventionId, label])
   @@index([interventionId])
 }
 
@@ -204,15 +264,17 @@ model InterventionLine {
 // Ventes d'accessoires / produits au comptoir
 // ---------------------------------------------------------------------------
 
+/// Produits remis au client au comptoir (accessoires, consommables).
+/// L'atelier ne gère pas les prix ici : on trace ce qui est sorti, pas
+/// combien ça a été facturé.
 model Sale {
-  id          String   @id @default(cuid())
-  reference   String   @unique
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  soldAt      DateTime @default(now())
-  totalAmount Decimal  @default(0) @db.Decimal(10, 2)
-  notes       String?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  reference String   @unique
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  soldAt    DateTime @default(now())
+  notes     String?
+  createdAt DateTime @default(now())
 
   lines          SaleLine[]
   stockMovements StockMovement[]
@@ -227,8 +289,7 @@ model SaleLine {
   productId String?
   product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   label     String
-  quantity  Decimal  @default(1) @db.Decimal(10, 2)
-  unitPrice Decimal  @default(0) @db.Decimal(10, 2)
+  quantity  Int      @default(1)
 
   @@index([saleId])
 }
@@ -247,28 +308,26 @@ enum ProductCategory {
   AUTRE
 }
 
+/// Un produit, c'est une photo, un nom et une quantité en stock.
+/// Le reste est facultatif : l'atelier ne gère ni prix ni TVA.
 model Product {
-  id            String          @id @default(cuid())
-  sku           String          @unique
-  name          String
-  description   String?
-  category      ProductCategory @default(PIECE)
-  brand         String?
-  barcode       String?
-  location      String?
-  purchasePrice Decimal         @default(0) @db.Decimal(10, 2)
-  salePrice     Decimal         @default(0) @db.Decimal(10, 2)
-  vatRate       Decimal         @default(20) @db.Decimal(5, 2)
-  stockQty      Int             @default(0)
-  stockAlert    Int             @default(0)
-  active        Boolean         @default(true)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id         String          @id @default(cuid())
+  sku        String          @unique
+  name       String
+  notes      String?
+  category   ProductCategory @default(AUTRE)
+  brand      String?
+  location   String?
+  stockQty   Int             @default(0)
+  stockAlert Int             @default(0)
+  active     Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
 
   photos            ProductPhoto[]
   movements         StockMovement[]
   receptionLines    ReceptionLine[]
-  interventionLines InterventionLine[]
+  interventionParts InterventionPart[]
   saleLines         SaleLine[]
 
   @@index([name])
@@ -315,7 +374,6 @@ model Reception {
   carrier        String?
   trackingNumber String?
   packageCount   Int             @default(1)
-  invoiceNumber  String?
   receivedAt     DateTime        @default(now())
   validatedAt    DateTime?
   receivedById   String?
@@ -337,10 +395,7 @@ model ReceptionLine {
   reception   Reception @relation(fields: [receptionId], references: [id], onDelete: Cascade)
   productId   String
   product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
-  expectedQty Int       @default(0)
   quantity    Int
-  unitCost    Decimal   @default(0) @db.Decimal(10, 2)
-  batch       String?
   notes       String?
 
   @@index([receptionId])
@@ -366,7 +421,6 @@ model StockMovement {
   quantity       Int
   stockBefore    Int
   stockAfter     Int
-  unitCost       Decimal?      @db.Decimal(10, 2)
   reason         String?
   receptionId    String?
   reception      Reception?    @relation(fields: [receptionId], references: [id], onDelete: SetNull)

@@ -76,3 +76,22 @@ export const MEDIA_KINDS = {
 export function options<T extends Record<string, string>>(map: T) {
   return Object.entries(map) as [keyof T & string, string][];
 }
+
+export const SERVICE_CATEGORIES = {
+  ENTRETIEN: "Entretien",
+  FREINAGE: "Freinage",
+  PNEUMATIQUE: "Pneumatique",
+  MOTEUR: "Moteur",
+  TRANSMISSION: "Transmission",
+  ELECTRIQUE: "Électrique",
+  CONTROLE: "Contrôle",
+  AUTRE: "Autre",
+} as const;
+
+export const VEHICLE_DOCUMENT_KINDS = {
+  CARTE_GRISE: "Carte grise",
+  ASSURANCE: "Assurance",
+  FACTURE: "Facture",
+  PHOTO: "Photo du véhicule",
+  AUTRE: "Autre document",
+} as const;

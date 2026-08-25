@@ -11,24 +11,24 @@ import {
   Input,
   LinkButton,
   PageHeader,
-  Select,
   Textarea,
+  Thumb,
   buttonClass,
   buttonDangerClass,
+  buttonGhostClass,
+  buttonGoldClass,
 } from "@/components/ui";
 import {
   addReceptionLineAction,
+  createProductAndAddLineAction,
   deleteReceptionLineAction,
   updateReceptionAction,
+  updateReceptionLineAction,
   validateReceptionAction,
 } from "@/lib/actions/receptions";
 import { prisma } from "@/lib/db";
-import { formatDateTime, formatPrice } from "@/lib/format";
-import {
-  PRODUCT_CATEGORIES,
-  RECEPTION_STATUSES,
-  options,
-} from "@/lib/labels";
+import { formatDateTime } from "@/lib/format";
+import { RECEPTION_STATUSES } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -37,41 +37,50 @@ export default async function ReceptionDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; ok?: string }>;
+  searchParams: Promise<{ error?: string; ok?: string; q?: string }>;
 }) {
   const { id } = await params;
-  const { error, ok } = await searchParams;
+  const { error, ok, q } = await searchParams;
+  const query = (q ?? "").trim();
 
-  const [reception, products] = await Promise.all([
-    prisma.reception.findUnique({
-      where: { id },
-      include: {
-        supplier: true,
-        receivedBy: { select: { name: true } },
-        lines: { include: { product: true }, orderBy: { id: "asc" } },
-        movements: {
-          include: { product: { select: { id: true, name: true, sku: true } } },
-          orderBy: { createdAt: "asc" },
-        },
+  const reception = await prisma.reception.findUnique({
+    where: { id },
+    include: {
+      supplier: true,
+      receivedBy: { select: { name: true } },
+      lines: {
+        include: { product: { include: { photos: { take: 1, orderBy: { position: "asc" } } } } },
+        orderBy: { id: "asc" },
       },
-    }),
-    prisma.product.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, sku: true, stockQty: true },
-    }),
-  ]);
+      movements: {
+        include: { product: { select: { id: true, name: true, sku: true } } },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
 
   if (!reception) notFound();
 
   const draft = reception.status === "BROUILLON";
   const totalUnits = reception.lines.reduce((sum, line) => sum + line.quantity, 0);
-  const totalCost = reception.lines.reduce(
-    (sum, line) => sum + line.quantity * Number(line.unitCost),
-    0,
-  );
-  const discrepancies = reception.lines.filter(
-    (line) => line.expectedQty > 0 && line.expectedQty !== line.quantity,
-  );
+
+  // Résultats de la barre de recherche : le catalogue filtré à la volée
+  const matches =
+    draft && query.length >= 1
+      ? await prisma.product.findMany({
+          where: {
+            OR: [
+              { name: { contains: query, mode: "insensitive" } },
+              { brand: { contains: query, mode: "insensitive" } },
+              { sku: { contains: query, mode: "insensitive" } },
+              { location: { contains: query, mode: "insensitive" } },
+            ],
+          },
+          include: { photos: { take: 1, orderBy: { position: "asc" } } },
+          orderBy: { name: "asc" },
+          take: 12,
+        })
+      : [];
 
   return (
     <div className="space-y-6">
@@ -94,170 +103,172 @@ export default async function ReceptionDetailPage({
 
       <Flash error={error} ok={ok} />
 
+      {draft ? (
+        <Card title="Ajouter au colis">
+          {/* Barre de recherche : on tape, on choisit, c'est ajouté */}
+          <form method="get" className="flex gap-2">
+            <Input
+              name="q"
+              defaultValue={query}
+              autoFocus
+              placeholder="Chercher un produit : plaquettes, pneu, huile…"
+              className="flex-1"
+            />
+            <button type="submit" className={buttonClass}>
+              Chercher
+            </button>
+          </form>
+
+          {query.length >= 1 ? (
+            matches.length > 0 ? (
+              <ul className="mt-4 divide-y divide-slate-100">
+                {matches.map((product) => (
+                  <li key={product.id} className="flex items-center gap-3 py-2.5">
+                    <Thumb src={product.photos[0]?.url} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-900">
+                        {product.name}
+                      </p>
+                      <p className="truncate text-xs text-slate-500">
+                        {product.brand ? `${product.brand} · ` : ""}
+                        {product.stockQty} en stock
+                      </p>
+                    </div>
+                    <form
+                      action={addReceptionLineAction}
+                      className="flex shrink-0 items-center gap-2"
+                    >
+                      <input type="hidden" name="receptionId" value={id} />
+                      <input type="hidden" name="productId" value={product.id} />
+                      <input type="hidden" name="q" value={query} />
+                      <Input
+                        name="quantity"
+                        type="number"
+                        min={1}
+                        defaultValue={1}
+                        aria-label={`Quantité reçue de ${product.name}`}
+                        className="w-20"
+                      />
+                      <button type="submit" className={buttonGoldClass}>
+                        Ajouter
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
+                <p className="text-sm text-slate-600">
+                  Aucun produit ne correspond à «&nbsp;{query}&nbsp;».
+                </p>
+                <form
+                  action={createProductAndAddLineAction}
+                  className="mt-3 flex flex-wrap items-end gap-2"
+                >
+                  <input type="hidden" name="receptionId" value={id} />
+                  <input type="hidden" name="name" value={query} />
+                  <Field label="Quantité">
+                    <Input
+                      name="quantity"
+                      type="number"
+                      min={1}
+                      defaultValue={1}
+                      className="w-24"
+                    />
+                  </Field>
+                  <button type="submit" className={buttonGoldClass}>
+                    Créer «&nbsp;{query}&nbsp;» et l&apos;ajouter
+                  </button>
+                </form>
+                <p className="mt-2 text-xs text-slate-500">
+                  La fiche est créée avec ce nom. Photo et détails se complètent
+                  ensuite depuis le catalogue.
+                </p>
+              </div>
+            )
+          ) : (
+            <p className="mt-4 text-sm text-slate-500">
+              Tapez les premières lettres d&apos;un produit. S&apos;il n&apos;existe
+              pas encore, vous pourrez le créer d&apos;un clic.
+            </p>
+          )}
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-3">
+        <Card title={`Contenu du colis (${reception.lines.length})`} className="lg:col-span-2">
+          {reception.lines.length === 0 ? (
+            <Empty>Le colis est vide. Cherchez un produit ci-dessus.</Empty>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {reception.lines.map((line) => (
+                <li key={line.id} className="flex items-center gap-3 py-2.5">
+                  <Thumb src={line.product.photos[0]?.url} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      href={`/admin/produits/${line.productId}`}
+                      className="truncate text-sm font-medium text-slate-900 hover:text-gold-700"
+                    >
+                      {line.product.name}
+                    </Link>
+                    <p className="truncate text-xs text-slate-500">
+                      {line.product.sku}
+                      {line.notes ? ` · ${line.notes}` : ""}
+                    </p>
+                  </div>
+
+                  {draft ? (
+                    <div className="flex shrink-0 items-center gap-2">
+                      <form
+                        action={updateReceptionLineAction}
+                        className="flex items-center gap-1"
+                      >
+                        <input type="hidden" name="id" value={line.id} />
+                        <Input
+                          name="quantity"
+                          type="number"
+                          min={1}
+                          defaultValue={line.quantity}
+                          aria-label={`Quantité de ${line.product.name}`}
+                          className="w-20"
+                        />
+                        <button type="submit" className={buttonGhostClass}>
+                          OK
+                        </button>
+                      </form>
+                      <form action={deleteReceptionLineAction}>
+                        <input type="hidden" name="id" value={line.id} />
+                        <button type="submit" className={buttonDangerClass}>
+                          Retirer
+                        </button>
+                      </form>
+                    </div>
+                  ) : (
+                    <span className="shrink-0 text-lg font-bold text-slate-900">
+                      ×{line.quantity}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
         <Card title="Colis">
           <dl>
             <DataRow label="Fournisseur" value={reception.supplier?.name ?? "—"} />
             <DataRow label="Transporteur" value={reception.carrier ?? "—"} />
             <DataRow label="Suivi" value={reception.trackingNumber ?? "—"} />
-            <DataRow label="Facture / BL" value={reception.invoiceNumber ?? "—"} />
             <DataRow label="Nombre de colis" value={String(reception.packageCount)} />
             <DataRow label="Reçu le" value={formatDateTime(reception.receivedAt)} />
             <DataRow label="Reçu par" value={reception.receivedBy?.name ?? "—"} />
             <DataRow label="Validé le" value={formatDateTime(reception.validatedAt)} />
-            <DataRow label="Unités" value={String(totalUnits)} />
-            <DataRow label="Valeur d'achat" value={formatPrice(totalCost)} />
+            <DataRow label="Total unités" value={String(totalUnits)} />
           </dl>
           {reception.notes ? (
-            <p className="mt-3 rounded-lg border border-ink-800 bg-ink-950/60 p-3 text-sm text-ink-300">
+            <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
               {reception.notes}
             </p>
-          ) : null}
-        </Card>
-
-        <Card title="Contenu du colis" className="lg:col-span-2">
-          {reception.lines.length === 0 ? (
-            <Empty>Ajoutez les produits contenus dans le colis.</Empty>
-          ) : (
-            <div className="-mx-4 overflow-x-auto px-4">
-              <table className="w-full min-w-[620px] text-sm">
-                <thead>
-                  <tr className="border-b border-ink-800 text-left text-xs tracking-wide text-ink-400 uppercase">
-                    <th className="py-2 pr-3 font-medium">Produit</th>
-                    <th className="py-2 pr-3 text-right font-medium">Attendu</th>
-                    <th className="py-2 pr-3 text-right font-medium">Reçu</th>
-                    <th className="py-2 pr-3 text-right font-medium">Achat unit.</th>
-                    <th className="py-2 pr-3 font-medium">Lot</th>
-                    {draft ? <th className="py-2" /> : null}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-ink-800/70">
-                  {reception.lines.map((line) => (
-                    <tr key={line.id}>
-                      <td className="py-2 pr-3">
-                        <Link
-                          href={`/admin/produits/${line.productId}`}
-                          className="text-ink-100 hover:text-gold-300"
-                        >
-                          {line.product.name}
-                        </Link>
-                        <span className="block text-xs text-ink-500">
-                          {line.product.sku}
-                          {line.notes ? ` · ${line.notes}` : ""}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3 text-right text-ink-400">
-                        {line.expectedQty || "—"}
-                      </td>
-                      <td
-                        className={`py-2 pr-3 text-right font-medium ${
-                          line.expectedQty > 0 && line.expectedQty !== line.quantity
-                            ? "text-gold-300"
-                            : "text-ink-100"
-                        }`}
-                      >
-                        {line.quantity}
-                      </td>
-                      <td className="py-2 pr-3 text-right text-ink-300">
-                        {formatPrice(line.unitCost)}
-                      </td>
-                      <td className="py-2 pr-3 text-ink-400">{line.batch ?? "—"}</td>
-                      {draft ? (
-                        <td className="py-2 text-right">
-                          <form action={deleteReceptionLineAction}>
-                            <input type="hidden" name="id" value={line.id} />
-                            <button type="submit" className={buttonDangerClass}>
-                              Retirer
-                            </button>
-                          </form>
-                        </td>
-                      ) : null}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {discrepancies.length > 0 ? (
-            <p className="mt-3 rounded-lg border border-gold-500/40 bg-gold-500/10 px-3 py-2 text-xs text-gold-200">
-              {discrepancies.length} ligne(s) avec un écart entre le bon de
-              livraison et le contenu réel.
-            </p>
-          ) : null}
-
-          {draft ? (
-            <form
-              action={addReceptionLineAction}
-              className="mt-4 space-y-3 rounded-lg border border-ink-800 p-3"
-            >
-              <input type="hidden" name="receptionId" value={id} />
-              <p className="text-xs text-ink-400">
-                Choisissez un produit du catalogue, ou laissez vide et
-                renseignez le bloc « nouveau produit » pour créer la fiche à la
-                volée.
-              </p>
-              <div className="grid gap-3 sm:grid-cols-4">
-                <Field label="Produit du catalogue" className="sm:col-span-2">
-                  <Select name="productId" defaultValue="">
-                    <option value="">— Nouveau produit —</option>
-                    {products.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} ({product.sku}) — {product.stockQty} en stock
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="Quantité attendue" hint="D'après le bon de livraison">
-                  <Input name="expectedQty" type="number" min={0} />
-                </Field>
-                <Field label="Quantité reçue">
-                  <Input name="quantity" type="number" min={1} required defaultValue={1} />
-                </Field>
-                <Field label="Prix d'achat unitaire (€)">
-                  <Input name="unitCost" type="number" step="0.01" min={0} defaultValue={0} />
-                </Field>
-                <Field label="Lot / série">
-                  <Input name="batch" />
-                </Field>
-                <Field label="Note de ligne" className="sm:col-span-2">
-                  <Input name="notes" placeholder="2 manquants sur le BL" />
-                </Field>
-              </div>
-
-              <details className="rounded-lg border border-ink-800 p-3">
-                <summary className="cursor-pointer text-sm font-semibold text-gold-300">
-                  Nouveau produit (si absent du catalogue)
-                </summary>
-                <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                  <Field label="Référence (SKU)">
-                    <Input name="newSku" autoCapitalize="characters" />
-                  </Field>
-                  <Field label="Nom" className="sm:col-span-2">
-                    <Input name="newName" />
-                  </Field>
-                  <Field label="Catégorie">
-                    <Select name="newCategory" defaultValue="PIECE">
-                      {options(PRODUCT_CATEGORIES).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  <Field label="Marque">
-                    <Input name="newBrand" />
-                  </Field>
-                  <Field label="Prix de vente TTC (€)">
-                    <Input name="newSalePrice" type="number" step="0.01" min={0} />
-                  </Field>
-                </div>
-              </details>
-
-              <button type="submit" className={buttonClass}>
-                Ajouter la ligne
-              </button>
-            </form>
           ) : null}
         </Card>
       </div>
@@ -267,29 +278,20 @@ export default async function ReceptionDetailPage({
           <Card title="Valider et entrer en stock">
             <form action={validateReceptionAction} className="space-y-3">
               <input type="hidden" name="id" value={id} />
-              <p className="text-sm text-ink-300">
-                {reception.lines.length} ligne(s), {totalUnits} unité(s) entreront
-                en stock en une seule opération. Chaque mouvement gardera le
-                lien vers ce colis : fournisseur, transporteur, numéro de suivi,
-                opérateur et date.
+              <p className="text-sm text-slate-600">
+                {reception.lines.length} produit(s), {totalUnits} unité(s)
+                entreront en stock en une seule opération. Chaque mouvement
+                gardera le lien vers ce colis : fournisseur, transporteur,
+                numéro de suivi, opérateur et date.
               </p>
-              <label className="flex items-center gap-2 text-sm text-ink-200">
-                <input
-                  type="checkbox"
-                  name="updatePurchasePrice"
-                  defaultChecked
-                  className="accent-gold-500"
-                />
-                Mettre à jour le prix d&apos;achat des fiches produits
-              </label>
               <button
                 type="submit"
-                className={buttonClass}
+                className={`${buttonGoldClass} w-full text-base`}
                 disabled={reception.lines.length === 0}
               >
                 Valider la réception
               </button>
-              <p className="text-xs text-ink-500">
+              <p className="text-xs text-slate-500">
                 Après validation, le colis n&apos;est plus modifiable : les
                 corrections passent par un ajustement de stock motivé.
               </p>
@@ -307,12 +309,6 @@ export default async function ReceptionDetailPage({
                   <Input
                     name="trackingNumber"
                     defaultValue={reception.trackingNumber ?? ""}
-                  />
-                </Field>
-                <Field label="Facture / BL">
-                  <Input
-                    name="invoiceNumber"
-                    defaultValue={reception.invoiceNumber ?? ""}
                   />
                 </Field>
                 <Field label="Nombre de colis">
@@ -338,7 +334,7 @@ export default async function ReceptionDetailPage({
           {reception.movements.length === 0 ? (
             <Empty>Aucun mouvement rattaché à cette réception.</Empty>
           ) : (
-            <ul className="divide-y divide-ink-800">
+            <ul className="divide-y divide-slate-100">
               {reception.movements.map((movement) => (
                 <li
                   key={movement.id}
@@ -347,16 +343,16 @@ export default async function ReceptionDetailPage({
                   <div className="min-w-0">
                     <Link
                       href={`/admin/produits/${movement.product.id}`}
-                      className="text-sm text-ink-100 hover:text-gold-300"
+                      className="text-sm font-medium text-slate-900 hover:text-gold-700"
                     >
                       {movement.product.name}
                     </Link>
-                    <p className="text-xs text-ink-500">
+                    <p className="text-xs text-slate-500">
                       {movement.product.sku} · {formatDateTime(movement.createdAt)} ·{" "}
                       {movement.userLabel}
                     </p>
                   </div>
-                  <span className="text-sm font-medium text-emerald-300">
+                  <span className="text-sm font-semibold text-emerald-700">
                     +{movement.quantity} ({movement.stockBefore} → {movement.stockAfter})
                   </span>
                 </li>

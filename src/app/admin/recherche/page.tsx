@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { Badge, Card, Empty, Input, PageHeader, Select, buttonClass } from "@/components/ui";
-import { formatDate, formatPlate, formatPrice, fullName } from "@/lib/format";
+import { formatDate, formatPlate, fullName } from "@/lib/format";
 import {
   INTERVENTION_STATUS_TONES,
   INTERVENTION_STATUSES,
@@ -64,25 +64,25 @@ export default async function SearchPage({
         <Empty>Aucun résultat pour « {query} ».</Empty>
       ) : (
         <div className="space-y-4">
-          <p className="text-sm text-ink-400">
+          <p className="text-sm text-slate-500">
             {total} résultat{total > 1 ? "s" : ""} pour « {query} »
           </p>
 
           {results.clients.length > 0 ? (
             <Card title={`Clients (${results.clients.length})`}>
-              <ul className="divide-y divide-ink-800">
+              <ul className="divide-y divide-slate-200">
                 {results.clients.map((client) => (
                   <li key={client.id}>
                     <Link
                       href={`/admin/clients/${client.id}`}
-                      className="flex items-center justify-between gap-3 py-3 hover:text-gold-300"
+                      className="flex items-center justify-between gap-3 py-3 hover:text-gold-700"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-ink-100">
+                        <p className="truncate text-sm font-medium text-slate-900">
                           {fullName(client)}
                           {client.company ? ` — ${client.company}` : ""}
                         </p>
-                        <p className="truncate text-xs text-ink-400">
+                        <p className="truncate text-xs text-slate-500">
                           {client.phone}
                           {client.city ? ` · ${client.city}` : ""}
                         </p>
@@ -99,18 +99,18 @@ export default async function SearchPage({
 
           {results.vehicles.length > 0 ? (
             <Card title={`Véhicules (${results.vehicles.length})`}>
-              <ul className="divide-y divide-ink-800">
+              <ul className="divide-y divide-slate-200">
                 {results.vehicles.map((vehicle) => (
                   <li key={vehicle.id}>
                     <Link
                       href={`/admin/clients/${vehicle.clientId}`}
-                      className="flex items-center justify-between gap-3 py-3 hover:text-gold-300"
+                      className="flex items-center justify-between gap-3 py-3 hover:text-gold-700"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-ink-100">
+                        <p className="truncate text-sm font-medium text-slate-900">
                           {vehicle.brand} {vehicle.model}
                         </p>
-                        <p className="truncate text-xs text-ink-400">
+                        <p className="truncate text-xs text-slate-500">
                           {fullName(vehicle.client)}
                           {vehicle.year ? ` · ${vehicle.year}` : ""}
                         </p>
@@ -125,18 +125,18 @@ export default async function SearchPage({
 
           {results.interventions.length > 0 ? (
             <Card title={`Interventions (${results.interventions.length})`}>
-              <ul className="divide-y divide-ink-800">
+              <ul className="divide-y divide-slate-200">
                 {results.interventions.map((intervention) => (
                   <li key={intervention.id}>
                     <Link
                       href={`/admin/interventions/${intervention.id}`}
-                      className="flex items-center justify-between gap-3 py-3 hover:text-gold-300"
+                      className="flex items-center justify-between gap-3 py-3 hover:text-gold-700"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-ink-100">
+                        <p className="truncate text-sm font-medium text-slate-900">
                           {intervention.title}
                         </p>
-                        <p className="truncate text-xs text-ink-400">
+                        <p className="truncate text-xs text-slate-500">
                           {intervention.reference} · {fullName(intervention.client)} ·{" "}
                           {formatDate(intervention.createdAt)}
                         </p>
@@ -153,21 +153,21 @@ export default async function SearchPage({
 
           {results.products.length > 0 ? (
             <Card title={`Produits (${results.products.length})`}>
-              <ul className="divide-y divide-ink-800">
+              <ul className="divide-y divide-slate-200">
                 {results.products.map((product) => (
                   <li key={product.id}>
                     <Link
                       href={`/admin/produits/${product.id}`}
-                      className="flex items-center justify-between gap-3 py-3 hover:text-gold-300"
+                      className="flex items-center justify-between gap-3 py-3 hover:text-gold-700"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-ink-100">
+                        <p className="truncate text-sm font-medium text-slate-900">
                           {product.name}
                         </p>
-                        <p className="truncate text-xs text-ink-400">
+                        <p className="truncate text-xs text-slate-500">
                           {product.sku}
-                          {product.location ? ` · ${product.location}` : ""} ·{" "}
-                          {formatPrice(product.salePrice)}
+                          {product.brand ? ` · ${product.brand}` : ""}
+                          {product.location ? ` · ${product.location}` : ""}
                         </p>
                       </div>
                       <Badge tone={product.stockQty <= product.stockAlert ? "gold" : "neutral"}>

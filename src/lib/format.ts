@@ -1,18 +1,6 @@
-import type { Prisma } from "@prisma/client";
-
-type Money = Prisma.Decimal | number | string | null | undefined;
-
-export function toNumber(value: Money): number {
-  if (value === null || value === undefined) return 0;
-  if (typeof value === "number") return value;
-  return Number(value.toString());
-}
-
-export function formatPrice(value: Money): string {
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "EUR",
-  }).format(toNumber(value));
+export function formatMileage(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  return `${value.toLocaleString("fr-FR")} km`;
 }
 
 export function formatDate(value: Date | string | null | undefined): string {

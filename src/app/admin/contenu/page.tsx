@@ -1,6 +1,7 @@
 import {
   Card,
   Field,
+  FileInput,
   Flash,
   Input,
   LinkButton,
@@ -73,17 +74,11 @@ export default async function ContentPage({
           <img
             src={content["hero.image"]}
             alt={content["hero.imageAlt"]}
-            className="aspect-[4/3] w-full rounded-lg border border-ink-800 object-cover"
+            className="aspect-[4/3] w-full rounded-lg border border-slate-200 object-cover"
           />
           <form action={uploadHeroImageAction} className="space-y-3">
             <Field label="Remplacer la photo" hint="JPEG, PNG, WebP ou AVIF — 8 Mo maximum">
-              <input
-                type="file"
-                name="photo"
-                accept="image/*"
-                required
-                className="w-full rounded-lg border border-ink-700 bg-ink-950 px-3 py-2 text-sm text-ink-200 file:mr-3 file:rounded file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-ink-950"
-              />
+              <FileInput name="photo" required />
             </Field>
             <Field label="Description de la photo">
               <Input name="alt" defaultValue={content["hero.imageAlt"]} />
@@ -101,7 +96,7 @@ export default async function ContentPage({
           return (
             <Card key={group.prefix} title={group.title}>
               {group.hint ? (
-                <p className="mb-3 text-xs text-ink-500">{group.hint}</p>
+                <p className="mb-3 text-xs text-slate-400">{group.hint}</p>
               ) : null}
               <div className="grid gap-4 sm:grid-cols-2">
                 {keys.map((key) => (

@@ -67,29 +67,29 @@ export default async function ClientsPage({
       {clients.length === 0 ? (
         <Empty>
           Aucun client{query ? ` pour « ${query} »` : ""}.{" "}
-          <Link href="/admin/clients/nouveau" className="text-gold-300 underline">
+          <Link href="/admin/clients/nouveau" className="text-gold-700 underline">
             Créer une fiche
           </Link>
         </Empty>
       ) : (
         <Card>
-          <ul className="divide-y divide-ink-800">
+          <ul className="divide-y divide-slate-200">
             {clients.map((client) => (
               <li key={client.id}>
                 <Link
                   href={`/admin/clients/${client.id}`}
-                  className="flex flex-wrap items-center justify-between gap-2 py-3 hover:text-gold-300"
+                  className="flex flex-wrap items-center justify-between gap-2 py-3 hover:text-gold-700"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink-100">
+                    <p className="truncate text-sm font-medium text-slate-900">
                       {fullName(client)}
                       {client.company ? (
-                        <span className="ml-2 text-xs text-ink-500">
+                        <span className="ml-2 text-xs text-slate-400">
                           {client.company}
                         </span>
                       ) : null}
                     </p>
-                    <p className="truncate text-xs text-ink-400">
+                    <p className="truncate text-xs text-slate-500">
                       {client.phone}
                       {client.city ? ` · ${client.city}` : ""} · client depuis{" "}
                       {formatDate(client.createdAt)}

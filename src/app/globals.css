@@ -36,8 +36,10 @@
   --radius-card: 1rem;
 }
 
+/* Le backoffice est en clair pour la lisibilité à l'atelier.
+   La page publique bascule en sombre via .theme-dark. */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html {
@@ -46,14 +48,18 @@ html {
 }
 
 body {
-  background-color: var(--color-ink-950);
-  color: var(--color-ink-50);
+  background-color: #ffffff;
+  color: var(--color-ink-900);
   font-family: var(--font-display);
   /* Le widget flottant ne doit jamais masquer la fin de page sur mobile */
   overscroll-behavior-y: none;
 }
 
-/* Texte doré du logo */
+.theme-dark {
+  color-scheme: dark;
+}
+
+/* Texte doré du logo, sur fond sombre */
 .text-gilded {
   background: linear-gradient(180deg, #fff3b0 0%, #f5c518 45%, #d4a017 70%, #8a6508 100%);
   -webkit-background-clip: text;
@@ -94,4 +100,12 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Version du doré lisible sur fond clair (backoffice) */
+.text-gilded-ink {
+  background: linear-gradient(180deg, #d4a017 0%, #a87a08 55%, #6b4d05 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }

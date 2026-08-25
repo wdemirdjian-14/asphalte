@@ -35,7 +35,7 @@ export default async function ReceptionsPage() {
       />
 
       {drafts.length > 0 ? (
-        <p className="rounded-lg border border-gold-500/40 bg-gold-500/10 px-3 py-2 text-sm text-gold-200">
+        <p className="rounded-lg border border-gold-400 bg-gold-50 px-3 py-2 text-sm text-gold-800">
           {drafts.length} colis en attente de validation.
         </p>
       ) : null}
@@ -44,20 +44,20 @@ export default async function ReceptionsPage() {
         <Empty>Aucune réception enregistrée.</Empty>
       ) : (
         <Card>
-          <ul className="divide-y divide-ink-800">
+          <ul className="divide-y divide-slate-200">
             {receptions.map((reception) => (
               <li key={reception.id}>
                 <Link
                   href={`/admin/receptions/${reception.id}`}
-                  className="flex flex-wrap items-center justify-between gap-3 py-3 hover:text-gold-300"
+                  className="flex flex-wrap items-center justify-between gap-3 py-3 hover:text-gold-700"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink-100">
+                    <p className="truncate text-sm font-medium text-slate-900">
                       {reception.reference}
                       {reception.supplier ? ` — ${reception.supplier.name}` : ""}
                     </p>
-                    <p className="mt-0.5 truncate text-xs text-ink-400">
-                      {formatDate(reception.receivedAt)} · {reception._count.lines} ligne(s)
+                    <p className="mt-0.5 truncate text-xs text-slate-500">
+                      {formatDate(reception.receivedAt)} · {reception._count.lines} produit(s)
                       {reception.carrier ? ` · ${reception.carrier}` : ""}
                       {reception.trackingNumber ? ` · ${reception.trackingNumber}` : ""}
                       {reception.receivedBy ? ` · reçu par ${reception.receivedBy.name}` : ""}

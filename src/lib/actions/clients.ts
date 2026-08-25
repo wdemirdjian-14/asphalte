@@ -6,7 +6,15 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { normalizePlate } from "@/lib/format";
-import { failWith, optionalInteger, optionalText, text } from "@/lib/form";
+import {
+  failWith,
+  optionalInteger,
+  optionalText,
+  pickEnum,
+  text,
+} from "@/lib/form";
+import { VEHICLE_DOCUMENT_KINDS } from "@/lib/labels";
+import { saveImage, UploadError } from "@/lib/upload";
 
 export async function createClientAction(formData: FormData): Promise<void> {
   await requireUser();
@@ -86,9 +94,57 @@ export async function createVehicleAction(formData: FormData): Promise<void> {
     failWith(target, "Immatriculation, marque et modèle sont obligatoires.");
   }
 
-  await prisma.vehicle.create({
+  const vehicle = await prisma.vehicle.create({
     data: {
       clientId,
+      plate: normalizePlate(plateDisplay),
+      plateDisplay,
+      brand,
+      model,
+      year: optionalInteger(formData, "year"),
+      displacement: optionalInteger(formData, "displacement"),
+      mileage: optionalInteger(formData, "mileage"),
+      vin: optionalText(formData, "vin"),
+      color: optionalText(formData, "color"),
+      notes: optionalText(formData, "notes"),
+    },
+  });
+
+  revalidatePath(target);
+  // On enchaîne sur la fiche du véhicule : c'est là qu'on photographie
+  // la carte grise dans la foulée.
+  redirect(`/admin/vehicules/${vehicle.id}`);
+}
+
+export async function deleteVehicleAction(formData: FormData): Promise<void> {
+  await requireUser();
+
+  const id = text(formData, "id");
+  const clientId = text(formData, "clientId");
+
+  await prisma.vehicle.delete({ where: { id } });
+
+  revalidatePath(`/admin/clients/${clientId}`);
+  redirect(`/admin/clients/${clientId}`);
+}
+
+export async function updateVehicleAction(formData: FormData): Promise<void> {
+  await requireUser();
+
+  const id = text(formData, "id");
+  const target = `/admin/vehicules/${id}`;
+
+  const plateDisplay = text(formData, "plate").toUpperCase();
+  const brand = text(formData, "brand");
+  const model = text(formData, "model");
+
+  if (!plateDisplay || !brand || !model) {
+    failWith(target, "Immatriculation, marque et modèle sont obligatoires.");
+  }
+
+  await prisma.vehicle.update({
+    where: { id },
+    data: {
       plate: normalizePlate(plateDisplay),
       plateDisplay,
       brand,
@@ -106,14 +162,53 @@ export async function createVehicleAction(formData: FormData): Promise<void> {
   redirect(target);
 }
 
-export async function deleteVehicleAction(formData: FormData): Promise<void> {
+/**
+ * Photo d'un document du véhicule — la carte grise avant tout : une fois
+ * prise en photo, on ne la redemande plus au client.
+ */
+export async function addVehicleDocumentAction(formData: FormData): Promise<void> {
+  await requireUser();
+
+  const vehicleId = text(formData, "vehicleId");
+  const target = `/admin/vehicules/${vehicleId}`;
+  const file = formData.get("document");
+
+  if (!(file instanceof File) || file.size === 0) {
+    failWith(target, "Aucun document sélectionné.");
+  }
+
+  let url: string;
+  try {
+    url = await saveImage(file);
+  } catch (error) {
+    failWith(
+      target,
+      error instanceof UploadError ? error.message : "Envoi du document impossible.",
+    );
+  }
+
+  await prisma.vehicleDocument.create({
+    data: {
+      vehicleId,
+      url,
+      kind: pickEnum(VEHICLE_DOCUMENT_KINDS, text(formData, "kind"), "CARTE_GRISE"),
+      label: text(formData, "label"),
+    },
+  });
+
+  revalidatePath(target);
+  redirect(target);
+}
+
+export async function deleteVehicleDocumentAction(
+  formData: FormData,
+): Promise<void> {
   await requireUser();
 
   const id = text(formData, "id");
-  const clientId = text(formData, "clientId");
+  const document = await prisma.vehicleDocument.delete({ where: { id } });
+  const target = `/admin/vehicules/${document.vehicleId}`;
 
-  await prisma.vehicle.delete({ where: { id } });
-
-  revalidatePath(`/admin/clients/${clientId}`);
-  redirect(`/admin/clients/${clientId}`);
+  revalidatePath(target);
+  redirect(target);
 }

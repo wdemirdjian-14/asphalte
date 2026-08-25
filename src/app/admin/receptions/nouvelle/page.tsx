@@ -55,9 +55,6 @@ export default async function NewReceptionPage({
             <Field label="Numéro de suivi">
               <Input name="trackingNumber" autoCapitalize="characters" />
             </Field>
-            <Field label="Numéro de facture / BL">
-              <Input name="invoiceNumber" />
-            </Field>
             <Field label="Nombre de colis">
               <Input name="packageCount" type="number" min={1} defaultValue={1} />
             </Field>

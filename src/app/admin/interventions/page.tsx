@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { Badge, Card, Empty, PageHeader, Select, buttonClass } from "@/components/ui";
 import { prisma } from "@/lib/db";
-import { formatDate, formatPlate, formatPrice, fullName } from "@/lib/format";
+import { formatDate, formatPlate, fullName } from "@/lib/format";
 import {
   INTERVENTION_STATUS_TONES,
   INTERVENTION_STATUSES,
@@ -69,18 +69,18 @@ export default async function InterventionsPage({
         </Empty>
       ) : (
         <Card>
-          <ul className="divide-y divide-ink-800">
+          <ul className="divide-y divide-slate-200">
             {interventions.map((intervention) => (
               <li key={intervention.id}>
                 <Link
                   href={`/admin/interventions/${intervention.id}`}
-                  className="flex flex-wrap items-center justify-between gap-3 py-3 hover:text-gold-300"
+                  className="flex flex-wrap items-center justify-between gap-3 py-3 hover:text-gold-700"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink-100">
+                    <p className="truncate text-sm font-medium text-slate-900">
                       {intervention.title}
                     </p>
-                    <p className="mt-0.5 truncate text-xs text-ink-400">
+                    <p className="mt-0.5 truncate text-xs text-slate-500">
                       {intervention.reference} · {fullName(intervention.client)} ·{" "}
                       {formatDate(intervention.createdAt)}
                       {intervention.vehicle
@@ -88,14 +88,9 @@ export default async function InterventionsPage({
                         : ""}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-gold-300">
-                      {formatPrice(intervention.totalAmount)}
-                    </span>
-                    <Badge tone={INTERVENTION_STATUS_TONES[intervention.status]}>
-                      {INTERVENTION_STATUSES[intervention.status]}
-                    </Badge>
-                  </div>
+                  <Badge tone={INTERVENTION_STATUS_TONES[intervention.status]}>
+                    {INTERVENTION_STATUSES[intervention.status]}
+                  </Badge>
                 </Link>
               </li>
             ))}

@@ -15,7 +15,7 @@ export default async function HomePage() {
   const content = await getSiteContent();
 
   return (
-    <>
+    <div className="theme-dark min-h-dvh bg-ink-950 text-ink-50">
       <SiteHeader phone={content["info.phone"]} />
       <main>
         <Hero content={content} />
@@ -25,6 +25,6 @@ export default async function HomePage() {
         <ContactWidget content={content} />
       </main>
       <SiteFooter content={content} />
-    </>
+    </div>
   );
 }

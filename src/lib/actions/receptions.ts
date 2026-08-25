@@ -1,24 +1,20 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
-  checkbox,
   failWith,
   integer,
   nextReference,
-  number,
   optionalText,
-  pickEnum,
   text,
   yearRange,
 } from "@/lib/form";
-import { PRODUCT_CATEGORIES } from "@/lib/labels";
 import { REF_PREFIX } from "@/lib/refs";
+import { nextSku } from "@/lib/sku";
 import { applyStockMovement } from "@/lib/stock";
 
 export async function createReceptionAction(formData: FormData): Promise<void> {
@@ -50,7 +46,6 @@ export async function createReceptionAction(formData: FormData): Promise<void> {
       supplierId,
       carrier: optionalText(formData, "carrier"),
       trackingNumber: optionalText(formData, "trackingNumber"),
-      invoiceNumber: optionalText(formData, "invoiceNumber"),
       packageCount: integer(formData, "packageCount", 1),
       notes: optionalText(formData, "notes"),
       receivedById: user.id,
@@ -77,7 +72,6 @@ export async function updateReceptionAction(formData: FormData): Promise<void> {
     data: {
       carrier: optionalText(formData, "carrier"),
       trackingNumber: optionalText(formData, "trackingNumber"),
-      invoiceNumber: optionalText(formData, "invoiceNumber"),
       packageCount: integer(formData, "packageCount", 1),
       notes: optionalText(formData, "notes"),
     },
@@ -88,11 +82,56 @@ export async function updateReceptionAction(formData: FormData): Promise<void> {
 }
 
 /**
- * Ajoute une ligne au colis. Si le produit n'existe pas encore au catalogue,
- * on crée sa fiche à la volée (stock à zéro : l'entrée réelle aura lieu à la
- * validation de la réception).
+ * Ajoute un produit déjà au catalogue au colis en cours.
+ * Un seul clic depuis la liste de résultats de la recherche.
  */
 export async function addReceptionLineAction(formData: FormData): Promise<void> {
+  await requireUser();
+
+  const receptionId = text(formData, "receptionId");
+  const query = text(formData, "q");
+  const target = `/admin/receptions/${receptionId}${
+    query ? `?q=${encodeURIComponent(query)}` : ""
+  }`;
+
+  const reception = await prisma.reception.findUniqueOrThrow({
+    where: { id: receptionId },
+  });
+  if (reception.status === "VALIDE") {
+    failWith(target, "Cette réception est validée : elle n'est plus modifiable.");
+  }
+
+  const productId = text(formData, "productId");
+  const quantity = integer(formData, "quantity", 1);
+  if (quantity <= 0) failWith(target, "La quantité doit être supérieure à zéro.");
+
+  // Deux passages sur le même produit s'additionnent au lieu de créer un doublon
+  const existing = await prisma.receptionLine.findFirst({
+    where: { receptionId, productId },
+  });
+
+  if (existing) {
+    await prisma.receptionLine.update({
+      where: { id: existing.id },
+      data: { quantity: existing.quantity + quantity },
+    });
+  } else {
+    await prisma.receptionLine.create({
+      data: { receptionId, productId, quantity },
+    });
+  }
+
+  revalidatePath(target);
+  redirect(target);
+}
+
+/**
+ * Le produit n'existe pas encore : on crée sa fiche et on l'ajoute au colis
+ * en une seule action, directement depuis la barre de recherche.
+ */
+export async function createProductAndAddLineAction(
+  formData: FormData,
+): Promise<void> {
   await requireUser();
 
   const receptionId = text(formData, "receptionId");
@@ -105,58 +144,43 @@ export async function addReceptionLineAction(formData: FormData): Promise<void> 
     failWith(target, "Cette réception est validée : elle n'est plus modifiable.");
   }
 
-  const quantity = integer(formData, "quantity", 0);
-  if (quantity <= 0) {
-    failWith(target, "La quantité reçue doit être supérieure à zéro.");
-  }
+  const name = text(formData, "name");
+  if (!name) failWith(target, "Donnez un nom au produit à créer.");
 
-  let productId = optionalText(formData, "productId");
+  const quantity = integer(formData, "quantity", 1);
+  if (quantity <= 0) failWith(target, "La quantité doit être supérieure à zéro.");
 
-  if (!productId) {
-    const sku = text(formData, "newSku").toUpperCase();
-    const name = text(formData, "newName");
-
-    if (!sku || !name) {
-      failWith(
-        target,
-        "Choisissez un produit du catalogue ou renseignez référence et nom pour en créer un.",
-      );
-    }
-
-    const existing = await prisma.product.findUnique({ where: { sku } });
-    if (existing) {
-      productId = existing.id;
-    } else {
-      const created = await prisma.product.create({
-        data: {
-          sku,
-          name,
-          category: pickEnum(
-            PRODUCT_CATEGORIES,
-            text(formData, "newCategory"),
-            "PIECE",
-          ),
-          brand: optionalText(formData, "newBrand"),
-          purchasePrice: new Prisma.Decimal(number(formData, "unitCost", 0)),
-          salePrice: new Prisma.Decimal(number(formData, "newSalePrice", 0)),
-          stockQty: 0,
-        },
-      });
-      productId = created.id;
-    }
-  }
+  const product = await prisma.product.create({
+    data: { sku: await nextSku(), name },
+  });
 
   await prisma.receptionLine.create({
-    data: {
-      receptionId,
-      productId,
-      quantity,
-      expectedQty: integer(formData, "expectedQty", quantity),
-      unitCost: new Prisma.Decimal(number(formData, "unitCost", 0)),
-      batch: optionalText(formData, "batch"),
-      notes: optionalText(formData, "notes"),
-    },
+    data: { receptionId, productId: product.id, quantity },
   });
+
+  revalidatePath(target);
+  revalidatePath("/admin/produits");
+  redirect(target);
+}
+
+export async function updateReceptionLineAction(formData: FormData): Promise<void> {
+  await requireUser();
+
+  const id = text(formData, "id");
+  const line = await prisma.receptionLine.findUniqueOrThrow({
+    where: { id },
+    include: { reception: { select: { id: true, status: true } } },
+  });
+  const target = `/admin/receptions/${line.reception.id}`;
+
+  if (line.reception.status === "VALIDE") {
+    failWith(target, "Cette réception est validée : elle n'est plus modifiable.");
+  }
+
+  const quantity = integer(formData, "quantity", line.quantity);
+  if (quantity <= 0) failWith(target, "La quantité doit être supérieure à zéro.");
+
+  await prisma.receptionLine.update({ where: { id }, data: { quantity } });
 
   revalidatePath(target);
   redirect(target);
@@ -184,16 +208,14 @@ export async function deleteReceptionLineAction(formData: FormData): Promise<voi
 
 /**
  * Validation du colis : toutes les lignes entrent en stock en une seule
- * opération. Chaque ligne produit un mouvement de stock rattaché à la
- * réception (fournisseur, transporteur, n° de suivi, opérateur, date) —
- * c'est la traçabilité de l'entrée.
+ * opération. Chaque ligne produit un mouvement rattaché à la réception —
+ * fournisseur, transporteur, numéro de suivi, opérateur et date.
  */
 export async function validateReceptionAction(formData: FormData): Promise<void> {
   const user = await requireUser();
 
   const id = text(formData, "id");
   const target = `/admin/receptions/${id}`;
-  const updatePurchasePrice = checkbox(formData, "updatePurchasePrice");
 
   const reception = await prisma.reception.findUniqueOrThrow({
     where: { id },
@@ -204,7 +226,7 @@ export async function validateReceptionAction(formData: FormData): Promise<void>
     failWith(target, "Cette réception a déjà été validée.");
   }
   if (reception.lines.length === 0) {
-    failWith(target, "Ajoutez au moins une ligne avant de valider le colis.");
+    failWith(target, "Ajoutez au moins un produit avant de valider le colis.");
   }
 
   await prisma.$transaction(async (tx) => {
@@ -213,21 +235,11 @@ export async function validateReceptionAction(formData: FormData): Promise<void>
         productId: line.productId,
         type: "RECEPTION",
         quantity: line.quantity,
-        unitCost: line.unitCost,
-        reason: `Réception ${reception.reference}${
-          line.batch ? ` — lot ${line.batch}` : ""
-        }`,
+        reason: `Réception ${reception.reference}`,
         receptionId: reception.id,
         userId: user.id,
         userLabel: user.name,
       });
-
-      if (updatePurchasePrice && Number(line.unitCost) > 0) {
-        await tx.product.update({
-          where: { id: line.productId },
-          data: { purchasePrice: line.unitCost },
-        });
-      }
     }
 
     await tx.reception.update({

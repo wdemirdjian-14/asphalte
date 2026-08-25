@@ -8,10 +8,10 @@ import {
   LinkButton,
   PageHeader,
   Select,
+  Thumb,
   buttonClass,
 } from "@/components/ui";
 import { prisma } from "@/lib/db";
-import { formatPrice } from "@/lib/format";
 import { PRODUCT_CATEGORIES, options } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
@@ -39,12 +39,12 @@ export default async function ProductsPage({
               { sku: contains },
               { name: contains },
               { brand: contains },
-              { barcode: { contains: query } },
               { location: contains },
             ],
           }
         : {}),
       ...(category ? { category: category as never } : {}),
+      ...(onlyAlerts ? { active: true } : {}),
     },
     include: { photos: { orderBy: { position: "asc" }, take: 1 } },
     orderBy: { name: "asc" },
@@ -55,16 +55,13 @@ export default async function ProductsPage({
     ? products.filter((product) => product.stockQty <= product.stockAlert)
     : products;
 
-  const stockValue = products.reduce(
-    (sum, product) => sum + product.stockQty * Number(product.purchasePrice),
-    0,
-  );
+  const totalUnits = products.reduce((sum, p) => sum + p.stockQty, 0);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Produits & stock"
-        subtitle={`${visible.length} référence${visible.length > 1 ? "s" : ""} · valeur du stock ${formatPrice(stockValue)}`}
+        subtitle={`${visible.length} produit${visible.length > 1 ? "s" : ""} · ${totalUnits} pièces en rayon`}
         action={
           <div className="flex gap-2">
             <LinkButton href="/admin/receptions">Réceptions</LinkButton>
@@ -79,7 +76,7 @@ export default async function ProductsPage({
         <Input
           name="q"
           defaultValue={query}
-          placeholder="Référence, nom, marque, code-barres, emplacement…"
+          placeholder="Nom, marque, emplacement…"
           className="sm:flex-1"
         />
         <Select name="category" defaultValue={category} className="sm:w-44">
@@ -90,15 +87,15 @@ export default async function ProductsPage({
             </option>
           ))}
         </Select>
-        <label className="flex items-center gap-2 rounded-lg border border-ink-700 px-3 py-2.5 text-sm text-ink-200">
+        <label className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700">
           <input
             type="checkbox"
             name="alerte"
             value="1"
             defaultChecked={onlyAlerts}
-            className="accent-gold-500"
+            className="h-4 w-4 accent-gold-600"
           />
-          Sous le seuil
+          Stock bas
         </label>
         <button type="submit" className={buttonClass}>
           Filtrer
@@ -106,60 +103,61 @@ export default async function ProductsPage({
       </form>
 
       {visible.length === 0 ? (
-        <Empty>Aucun produit ne correspond à ces critères.</Empty>
+        <Empty>
+          Aucun produit.{" "}
+          <Link href="/admin/produits/nouveau" className="text-gold-700 underline">
+            En créer un
+          </Link>
+        </Empty>
       ) : (
-        <Card>
-          <ul className="divide-y divide-ink-800">
-            {visible.map((product) => (
-              <li key={product.id}>
-                <Link
-                  href={`/admin/produits/${product.id}`}
-                  className="flex items-center gap-3 py-3 hover:text-gold-300"
-                >
-                  <span className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-ink-800 bg-ink-950">
-                    {product.photos[0] ? (
-                      <img
-                        src={product.photos[0].url}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center text-[10px] text-ink-600">
-                        photo
-                      </span>
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-ink-100">
-                      {product.name}
-                      {!product.active ? (
-                        <span className="ml-2 text-xs text-ink-500">(inactif)</span>
-                      ) : null}
-                    </p>
-                    <p className="truncate text-xs text-ink-400">
-                      {product.sku}
-                      {product.brand ? ` · ${product.brand}` : ""}
-                      {product.location ? ` · ${product.location}` : ""} ·{" "}
-                      {formatPrice(product.salePrice)}
-                    </p>
-                  </div>
-                  <Badge
-                    tone={
+        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {visible.map((product) => (
+            <li key={product.id}>
+              <Link
+                href={`/admin/produits/${product.id}`}
+                className="flex items-center gap-3 rounded-card border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:border-gold-400"
+              >
+                <Thumb src={product.photos[0]?.url} alt="" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-900">
+                    {product.name}
+                  </p>
+                  <p className="truncate text-xs text-slate-500">
+                    {product.brand ? `${product.brand} · ` : ""}
+                    {product.location ?? product.sku}
+                    {!product.active ? " · inactif" : ""}
+                  </p>
+                </div>
+                <span className="shrink-0 text-right">
+                  <span
+                    className={`block text-2xl leading-none font-bold ${
                       product.stockQty <= 0
-                        ? "red"
+                        ? "text-red-600"
                         : product.stockQty <= product.stockAlert
-                          ? "gold"
-                          : "neutral"
-                    }
+                          ? "text-gold-700"
+                          : "text-slate-900"
+                    }`}
                   >
-                    {product.stockQty} en stock
-                  </Badge>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Card>
+                    {product.stockQty}
+                  </span>
+                  <span className="text-[10px] tracking-wide text-slate-400 uppercase">
+                    en stock
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
+
+      {onlyAlerts && visible.length > 0 ? (
+        <Card title="Rappel">
+          <p className="text-sm text-slate-600">
+            Ces produits sont à leur seuil d&apos;alerte ou en dessous. Le seuil
+            se règle sur la fiche de chaque produit.
+          </p>
+        </Card>
+      ) : null}
     </div>
   );
 }
