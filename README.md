@@ -250,6 +250,103 @@ docker run --rm -v asphalte_uploads:/data -v "$PWD":/backup alpine \
 
 ---
 
+## Déploiement sans droits root
+
+La procédure ci-dessus suppose un accès `sudo`. Sans lui, le déploiement se
+sépare en deux moitiés :
+
+| Ce qu'il faut | Droits nécessaires |
+| --- | --- |
+| Faire tourner l'application sur un port local (`127.0.0.1:3000`) | Aucun droit root **si** l'utilisateur est dans le groupe `docker` |
+| Faire pointer `asphalte.walautao.fr` sur ce port | Root, **ou** un panneau d'hébergement, **ou** l'administrateur du serveur |
+
+Commencer par établir ce qui est possible :
+
+```bash
+sh deploy/DIAGNOSTIC.sh
+```
+
+Le script ne modifie rien. Il indique notamment si `docker ps` fonctionne
+sans `sudo`, si un panneau d'hébergement est présent, et quels ports sont
+déjà occupés.
+
+### 1. Installer l'application dans son répertoire personnel
+
+```bash
+git clone -b claude/asphalte-mvp-setup-16zuyl \
+  https://github.com/wdemirdjian-14/asphalte.git ~/asphalte
+cd ~/asphalte
+```
+
+Le `.env` est identique à celui de la procédure principale. Si le port 3000
+est déjà pris (le diagnostic le dit), ajouter une ligne :
+
+```dotenv
+WEB_PORT=3010
+```
+
+Puis :
+
+```bash
+docker compose up -d --build
+curl -I http://127.0.0.1:3000        # ou le port choisi
+```
+
+Si `docker ps` est refusé, voir « Sans Docker » plus bas.
+
+### 2. Faire proxifier le sous-domaine
+
+L'application écoute en local ; il reste à lui router le trafic du
+sous-domaine. Trois cas.
+
+**Panneau d'hébergement** (Plesk, CloudPanel, ISPConfig, Virtualmin…) :
+ouvrir le sous-domaine `asphalte.walautao.fr`, chercher le champ
+« directives nginx additionnelles » (ou « vhost editor »), y coller le
+contenu de `deploy/nginx/asphalte-snippet.conf`. Sur Plesk, décocher aussi
+« Proxy mode » pour qu'Apache ne s'intercale pas. Le certificat TLS se
+demande depuis le panneau (Let's Encrypt en un clic).
+
+**Administrateur du serveur** : lui transmettre le fichier
+`deploy/nginx/asphalte-http.conf` (ou le fragment
+`deploy/nginx/asphalte-snippet.conf` s'il a déjà un vhost pour ce
+sous-domaine), en précisant le port local utilisé, et lui demander
+d'émettre le certificat pour `asphalte.walautao.fr`.
+
+**Hébergeur mutualisé sans accès nginx** : le proxy vers un port local n'est
+en général pas possible. Il faut alors un VPS, ou un hébergement compatible
+Node.js.
+
+### Sans Docker
+
+Si `docker ps` est refusé et que l'ajout au groupe `docker` n'est pas
+envisageable, l'application tourne aussi directement avec Node, à condition
+d'avoir Node 20+ et un accès à une base PostgreSQL (locale ou distante) :
+
+```bash
+cd ~/asphalte
+cp .env.example .env      # renseigner DATABASE_URL et AUTH_SECRET
+npm ci
+npm run build
+npm run db:deploy         # applique les migrations
+npm run db:seed           # crée le compte administrateur
+PORT=3000 npm run start
+```
+
+Pour que le processus survive à la déconnexion, sans root :
+
+```bash
+# systemd utilisateur (nécessite `loginctl enable-linger <utilisateur>`,
+# à demander à l'administrateur une seule fois)
+mkdir -p ~/.config/systemd/user
+# … puis un service pointant sur `npm run start` dans ~/asphalte
+
+# ou, plus simple, avec pm2 installé en local
+npx pm2 start "npm run start" --name asphalte
+npx pm2 save
+```
+
+---
+
 ## Photo du garage
 
 La page d'accueil affiche `public/images/garage.svg`, une **illustration

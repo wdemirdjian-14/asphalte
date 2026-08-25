@@ -31,7 +31,9 @@ services:
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?mot de passe du compte atelier}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Atelier Asphalte}
     ports:
-      - "127.0.0.1:3000:3000"
+      # Port exposé en local uniquement ; nginx proxifie dessus.
+      # WEB_PORT permet d'éviter une collision si 3000 est déjà pris.
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
     volumes:
       # Photos produits et photo du garage : doivent survivre aux mises à jour
       - uploads:/app/public/uploads
