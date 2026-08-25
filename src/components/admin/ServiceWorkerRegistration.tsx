@@ -1,0 +1,13 @@
+"use client";
+
+import { useEffect } from "react";
+
+/** Enregistre le service worker : sans lui, pas de notifications push. */
+export function ServiceWorkerRegistration() {
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  }, []);
+
+  return null;
+}

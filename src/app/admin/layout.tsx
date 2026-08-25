@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AdminSidebar, AdminTabBar } from "@/components/admin/AdminNav";
+import { ServiceWorkerRegistration } from "@/components/admin/ServiceWorkerRegistration";
 import { logoutAction } from "@/lib/actions/auth";
 import { requireUser } from "@/lib/auth";
 
@@ -55,6 +56,7 @@ export default async function AdminLayout({
       </div>
 
       <AdminTabBar />
+      <ServiceWorkerRegistration />
     </div>
   );
 }

@@ -7,12 +7,9 @@ import {
   PageHeader,
   Select,
   buttonClass,
-  buttonDangerClass,
-  buttonGhostClass,
 } from "@/components/ui";
-import { deleteMessageAction, setMessageStatusAction } from "@/lib/actions/messages";
 import { prisma } from "@/lib/db";
-import { formatDateTime, formatPlate, telHref } from "@/lib/format";
+import { formatDateTime, formatPlate } from "@/lib/format";
 import {
   MESSAGE_STATUS_TONES,
   MESSAGE_STATUSES,
@@ -34,15 +31,16 @@ export default async function MessagesPage({
 
   const messages = await prisma.contactMessage.findMany({
     where: status ? { status: status as never } : undefined,
-    orderBy: { createdAt: "desc" },
+    include: { _count: { select: { replies: true } } },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     take: 100,
   });
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Messages du site"
-        subtitle="Demandes envoyées depuis le widget de contact"
+        title="Messagerie"
+        subtitle="Demandes reçues depuis le widget du site"
       />
 
       <form method="get" className="flex gap-2">
@@ -62,75 +60,50 @@ export default async function MessagesPage({
       {messages.length === 0 ? (
         <Empty>Aucun message.</Empty>
       ) : (
-        <ul className="space-y-3">
-          {messages.map((message) => (
-            <li key={message.id}>
-              <Card>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
+        <Card>
+          <ul className="divide-y divide-slate-100">
+            {messages.map((message) => (
+              <li key={message.id}>
+                <Link
+                  href={`/admin/messages/${message.id}`}
+                  className="block py-3 transition-colors hover:text-gold-700"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-slate-900">
                       {message.name}
                       {message.subject ? (
-                        <span className="ml-2 text-xs text-slate-500">
+                        <span className="ml-2 text-xs font-normal text-slate-500">
                           {message.subject}
                         </span>
                       ) : null}
                     </p>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      <a href={telHref(message.phone)} className="text-gold-700 hover:underline">
-                        {message.phone}
-                      </a>
-                      {message.email ? ` · ${message.email}` : ""} ·{" "}
-                      {formatDateTime(message.createdAt)}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      {message.plate ? (
+                        <Badge>{formatPlate(message.plate)}</Badge>
+                      ) : null}
+                      {message._count.replies > 0 ? (
+                        <Badge tone="blue">
+                          {message._count.replies} réponse(s)
+                        </Badge>
+                      ) : null}
+                      <Badge tone={MESSAGE_STATUS_TONES[message.status]}>
+                        {MESSAGE_STATUSES[message.status]}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {message.plate ? (
-                      <Badge tone="gold">{formatPlate(message.plate)}</Badge>
-                    ) : null}
-                    <Badge tone={MESSAGE_STATUS_TONES[message.status]}>
-                      {MESSAGE_STATUSES[message.status]}
-                    </Badge>
-                  </div>
-                </div>
-
-                <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm whitespace-pre-line text-slate-700">
-                  {message.message}
-                </p>
-
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {message.status !== "LU" ? (
-                    <form action={setMessageStatusAction}>
-                      <input type="hidden" name="id" value={message.id} />
-                      <input type="hidden" name="status" value="LU" />
-                      <button type="submit" className={buttonGhostClass}>
-                        Marquer lu
-                      </button>
-                    </form>
-                  ) : null}
-                  {message.status !== "TRAITE" ? (
-                    <form action={setMessageStatusAction}>
-                      <input type="hidden" name="id" value={message.id} />
-                      <input type="hidden" name="status" value="TRAITE" />
-                      <button type="submit" className={buttonClass}>
-                        Marquer traité
-                      </button>
-                    </form>
-                  ) : null}
-                  <Link href="/admin/clients/nouveau" className={buttonGhostClass}>
-                    Créer une fiche client
-                  </Link>
-                  <form action={deleteMessageAction}>
-                    <input type="hidden" name="id" value={message.id} />
-                    <button type="submit" className={buttonDangerClass}>
-                      Supprimer
-                    </button>
-                  </form>
-                </div>
-              </Card>
-            </li>
-          ))}
-        </ul>
+                  <p className="mt-1 line-clamp-2 text-sm text-slate-600">
+                    {message.message}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {message.phone}
+                    {message.email ? ` · ${message.email}` : " · sans e-mail"} ·{" "}
+                    {formatDateTime(message.createdAt)}
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
     </div>
   );

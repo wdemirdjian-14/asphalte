@@ -347,6 +347,108 @@ npx pm2 save
 
 ---
 
+## E-mails et notifications
+
+### Configurer l'envoi d'e-mails (IONOS)
+
+L'atelier envoie deux types d'e-mails : une alerte interne quand un message
+arrive du site, et la réponse au client écrite depuis la messagerie du
+backoffice.
+
+Dans le `.env` du serveur :
+
+```dotenv
+SMTP_HOST=smtp.ionos.fr
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=contact@asphalte.walautao.fr
+SMTP_PASSWORD=le-mot-de-passe-de-la-boite-mail
+MAIL_FROM=Asphalte <contact@asphalte.walautao.fr>
+MAIL_TO_ATELIER=contact@asphalte.walautao.fr
+```
+
+Le mot de passe est **celui de la boîte mail elle-même**, tel que défini dans
+l'espace client IONOS (E-mail → la boîte → Mot de passe). Ce n'est pas le mot
+de passe du compte IONOS.
+
+Le port 465 est en TLS implicite (`SMTP_SECURE=true`). Si IONOS impose le 587,
+mettre `SMTP_PORT=587` et `SMTP_SECURE=false` : nodemailer passe alors en
+STARTTLS.
+
+Appliquer ensuite :
+
+```bash
+cd ~/asphalte
+docker compose up -d
+```
+
+**Backoffice → Réglages** affiche l'état de la connexion SMTP : « Serveur
+joignable » signifie que l'authentification est passée. En cas d'échec, le
+message d'erreur du serveur IONOS est affiché tel quel.
+
+> Le `.env` contient un mot de passe : `chmod 600 .env` et ne le committez
+> jamais. Il est déjà dans le `.gitignore`.
+
+### Messagerie
+
+Les demandes envoyées depuis le widget du site arrivent dans **Backoffice →
+Messagerie**, chacune ouvrant un fil : la demande initiale, puis les réponses
+de l'atelier. Écrire une réponse l'envoie par e-mail au client et bascule le
+message en « Traité ».
+
+La réponse est toujours enregistrée dans le fil, même si l'envoi échoue ou si
+le client n'a pas laissé d'adresse : dans ce cas la réponse est marquée « Non
+envoyé » avec la raison, et le téléphone du client est rappelé à côté.
+
+### Installer l'application sur iPhone
+
+1. Ouvrir `https://asphalte.walautao.fr/admin` **dans Safari** (sur iOS, seul
+   Safari sait installer une application).
+2. Bouton **Partager** → **Sur l'écran d'accueil**.
+3. L'icône Asphalte rejoint les autres applications ; l'ouvrir depuis là.
+
+L'application s'ouvre alors en plein écran, sans barre d'adresse.
+
+### Notifications push
+
+Générer une paire de clés VAPID, une seule fois :
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Les reporter dans le `.env` :
+
+```dotenv
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=BB...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:contact@asphalte.walautao.fr
+```
+
+`NEXT_PUBLIC_VAPID_PUBLIC_KEY` est **inlinée dans le bundle au moment du
+build** : après l'avoir changée, reconstruire l'image, un simple redémarrage
+ne suffit pas.
+
+```bash
+docker compose up -d --build
+```
+
+Puis, **depuis l'application installée sur l'iPhone** : Réglages → « Activer
+les notifications » → accepter la demande d'autorisation. Le bouton
+« Tester » envoie une notification à tous les appareils abonnés.
+
+À l'arrivée d'un message du site, chaque appareil abonné reçoit une
+notification ; la toucher ouvre directement le fil correspondant.
+
+**Contraintes iOS** : iOS 16.4 minimum, et les notifications web ne
+fonctionnent **que depuis l'application ajoutée à l'écran d'accueil**. Depuis
+Safari en navigation normale, le bouton d'activation ne s'affiche pas — la
+page indique alors la marche à suivre. Un abonnement disparaît si l'app est
+supprimée de l'écran d'accueil ; il suffit de la réinstaller et de
+réactiver.
+
+---
+
 ## Photo du garage
 
 La page d'accueil affiche `public/images/garage.svg`, une **illustration

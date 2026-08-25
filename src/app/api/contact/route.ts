@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db";
 import { normalizePlate } from "@/lib/format";
+import { atelierMailbox, emailLayout, escapeHtml, sendMail } from "@/lib/mail";
+import { notifyAll } from "@/lib/push";
 
 const schema = z.object({
   name: z.string().trim().min(2, "Nom trop court").max(120),
@@ -42,8 +44,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  let message;
   try {
-    await prisma.contactMessage.create({
+    message = await prisma.contactMessage.create({
       data: {
         name: data.name,
         phone: data.phone,
@@ -59,6 +62,51 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  // Le message est en base : les alertes ne doivent plus faire échouer la
+  // réponse au visiteur. On les lance sans bloquer et sans propager d'erreur.
+  const alerts = Promise.allSettled([
+    notifyAll({
+      title: `Message de ${message.name}`,
+      body: message.message.slice(0, 140),
+      url: `/admin/messages/${message.id}`,
+      tag: `message-${message.id}`,
+    }),
+    (async () => {
+      const mailbox = atelierMailbox();
+      if (!mailbox) return;
+
+      await sendMail({
+        to: mailbox,
+        replyTo: message.email ?? undefined,
+        subject: `Nouveau message — ${message.name}${
+          message.subject ? ` (${message.subject})` : ""
+        }`,
+        text: `${message.name}\n${message.phone}${
+          message.email ? ` · ${message.email}` : ""
+        }${message.plate ? `\nImmatriculation : ${message.plate}` : ""}\n\n${
+          message.message
+        }`,
+        html: emailLayout({
+          title: `Nouveau message de ${escapeHtml(message.name)}`,
+          bodyHtml: `
+            <p style="margin:0 0 12px;font-size:14px;color:#4a4a4a;">
+              ${escapeHtml(message.phone)}${
+                message.email ? ` · ${escapeHtml(message.email)}` : ""
+              }${message.plate ? ` · ${escapeHtml(message.plate)}` : ""}
+            </p>
+            <div style="font-size:15px;line-height:1.6;white-space:pre-line;padding:14px;background:#fafafa;border-radius:10px;border:1px solid #e4e4e7;">${escapeHtml(
+              message.message,
+            )}</div>`,
+          footer: "Répondez depuis le backoffice : /admin/messages",
+        }),
+      });
+    })(),
+  ]);
+
+  // On attend brièvement pour que l'envoi parte avant la fin du contexte
+  // serverless, sans pénaliser le visiteur si le SMTP traîne.
+  await Promise.race([alerts, new Promise((resolve) => setTimeout(resolve, 3000))]);
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }

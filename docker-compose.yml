@@ -15,7 +15,12 @@ services:
       retries: 5
 
   web:
-    build: .
+    build:
+      context: .
+      args:
+        # Inlinées dans le bundle client au moment du build
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://asphalte.walautao.fr}
     restart: unless-stopped
     depends_on:
       db:
@@ -30,6 +35,18 @@ services:
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-contact@asphalte.fr}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?mot de passe du compte atelier}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Atelier Asphalte}
+      # Envoi d'e-mails (IONOS)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_TO_ATELIER: ${MAIL_TO_ATELIER:-}
+      # Notifications push de l'application installée
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:contact@asphalte.walautao.fr}
     ports:
       # Port exposé en local uniquement ; nginx proxifie dessus.
       # WEB_PORT permet d'éviter une collision si 3000 est déjà pris.

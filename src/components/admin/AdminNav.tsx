@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/admin/receptions", label: "Réceptions", short: "Colis" },
   { href: "/admin/messages", label: "Messages", short: "Messages" },
   { href: "/admin/contenu", label: "Page publique", short: "Site" },
+  { href: "/admin/reglages", label: "Réglages", short: "Réglages" },
 ];
 
 function isActive(pathname: string, href: string): boolean {

@@ -29,8 +29,10 @@ model AdminUser {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  receptions     Reception[]
-  stockMovements StockMovement[]
+  receptions        Reception[]
+  stockMovements    StockMovement[]
+  messageReplies    MessageReply[]
+  pushSubscriptions PushSubscription[]
 }
 
 // ---------------------------------------------------------------------------
@@ -84,8 +86,45 @@ model ContactMessage {
   message   String
   status    MessageStatus @default(NOUVEAU)
   createdAt DateTime      @default(now())
+  updatedAt DateTime      @default(now()) @updatedAt
+
+  replies MessageReply[]
 
   @@index([status, createdAt])
+}
+
+/// Réponse de l'atelier à un message du site. Conservée même si l'envoi
+/// e-mail échoue : le fil reste complet, l'échec est visible.
+model MessageReply {
+  id         String         @id @default(cuid())
+  messageId  String
+  message    ContactMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  body       String
+  authorId   String?
+  author     AdminUser?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorName String
+  emailSent  Boolean        @default(false)
+  emailError String?
+  createdAt  DateTime       @default(now())
+
+  @@index([messageId, createdAt])
+}
+
+/// Abonnement Web Push d'un appareil. Sur iPhone, l'abonnement n'existe
+/// que si le site a été ajouté à l'écran d'accueil (iOS 16.4 minimum).
+model PushSubscription {
+  id         String     @id @default(cuid())
+  endpoint   String     @unique
+  p256dh     String
+  auth       String
+  userId     String?
+  user       AdminUser? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent  String     @default("")
+  label      String     @default("")
+  createdAt  DateTime   @default(now())
+  lastUsedAt DateTime?
+
+  @@index([userId])
 }
 
 // ---------------------------------------------------------------------------
