@@ -4,8 +4,10 @@ const nextConfig: NextConfig = {
   output: "standalone",
   experimental: {
     serverActions: {
-      // Photos produits / réceptions envoyées depuis un mobile
-      bodySizeLimit: "8mb",
+      // Une photo d'iPhone récent peut dépasser 10 Mo. La limite applicative
+      // (25 Mo dans lib/upload) reste en dessous : un fichier trop lourd
+      // reçoit un message clair au lieu d'une erreur 500 de transport.
+      bodySizeLimit: "30mb",
     },
   },
 };

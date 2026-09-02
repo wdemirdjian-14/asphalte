@@ -232,7 +232,7 @@ Les migrations sont appliquées automatiquement au redémarrage. Le volume
 | Symptôme | Piste |
 | --- | --- |
 | `502 Bad Gateway` | Le conteneur ne tourne pas : `docker compose ps`, `docker compose logs web` |
-| `413 Request Entity Too Large` à l'envoi d'une photo | `client_max_body_size 8m;` absent du bloc `server` nginx |
+| `413 Request Entity Too Large` à l'envoi d'une photo | `client_max_body_size 30m;` absent du bloc `server` nginx |
 | Déconnexion immédiate du backoffice | Site servi en HTTP : le cookie `Secure` est refusé, finir l'étape 5 |
 | `certbot` échoue en validation | Le DNS ne pointe pas encore sur le serveur (`dig +short asphalte.walautao.fr`) ou le port 80 est fermé |
 | Redémarrage en boucle du conteneur | Vérifier `AUTH_SECRET` (32 octets minimum) et l'accès à la base dans `docker compose logs web` |

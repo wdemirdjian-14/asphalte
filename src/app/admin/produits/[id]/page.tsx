@@ -25,6 +25,7 @@ import {
   updateProductAction,
 } from "@/lib/actions/products";
 import { prisma } from "@/lib/db";
+import { thumbUrl } from "@/lib/files";
 import { formatDateTime } from "@/lib/format";
 import { MOVEMENT_TYPES, PRODUCT_CATEGORIES, options } from "@/lib/labels";
 
@@ -176,8 +177,10 @@ export default async function ProductDetailPage({
                 className="overflow-hidden rounded-lg border border-slate-200"
               >
                 <img
-                  src={photo.url}
+                  src={thumbUrl(photo.url)}
                   alt={photo.alt}
+                  loading="lazy"
+                  decoding="async"
                   className="aspect-square w-full object-cover"
                 />
                 <form action={deleteProductPhotoAction} className="p-2">

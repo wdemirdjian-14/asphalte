@@ -77,7 +77,7 @@ export default async function ContentPage({
             className="aspect-[4/3] w-full rounded-lg border border-slate-200 object-cover"
           />
           <form action={uploadHeroImageAction} className="space-y-3">
-            <Field label="Remplacer la photo" hint="JPEG, PNG, WebP ou AVIF — 8 Mo maximum">
+            <Field label="Remplacer la photo" hint="Photo redimensionnée automatiquement — 25 Mo maximum">
               <FileInput name="photo" required />
             </Field>
             <Field label="Description de la photo">

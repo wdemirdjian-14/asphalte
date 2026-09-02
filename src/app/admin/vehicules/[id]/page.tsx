@@ -24,7 +24,7 @@ import {
   updateVehicleAction,
 } from "@/lib/actions/clients";
 import { prisma } from "@/lib/db";
-import { isPdf } from "@/lib/upload";
+import { isPdf, thumbUrl } from "@/lib/files";
 import { formatDate, formatMileage, formatPlate, fullName } from "@/lib/format";
 import {
   INTERVENTION_STATUS_TONES,
@@ -104,8 +104,10 @@ export default async function VehiclePage({
                       </span>
                     ) : (
                       <img
-                        src={document.url}
+                        src={thumbUrl(document.url)}
                         alt={document.label || VEHICLE_DOCUMENT_KINDS[document.kind]}
+                        loading="lazy"
+                        decoding="async"
                         className="aspect-[3/2] w-full object-cover"
                       />
                     )}

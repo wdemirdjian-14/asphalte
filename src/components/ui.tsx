@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
+import { thumbUrl } from "@/lib/files";
+
 export function PageHeader({
   title,
   subtitle,
@@ -237,7 +239,13 @@ export function Thumb({
       className={`${dimensions} shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100`}
     >
       {src ? (
-        <img src={src} alt={alt} className="h-full w-full object-cover" />
+        <img
+          src={thumbUrl(src)}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+        />
       ) : (
         <span className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">
           photo

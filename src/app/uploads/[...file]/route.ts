@@ -51,20 +51,37 @@ export async function GET(
   const contentType = CONTENT_TYPES[path.extname(target).toLowerCase()];
   if (!contentType) return notFound();
 
-  let size: number;
-  try {
-    const info = await stat(target);
-    if (!info.isFile()) return notFound();
-    size = info.size;
-  } catch {
-    return notFound();
+  // Les envois faits avant la génération des vignettes n'en ont pas :
+  // on retombe sur l'image d'origine plutôt que d'afficher un trou.
+  const candidates = [target];
+  if (target.endsWith("-thumb.jpg")) {
+    const base = target.slice(0, -"-thumb.jpg".length);
+    candidates.push(`${base}.jpg`, `${base}.png`, `${base}.webp`, `${base}.avif`, `${base}.heic`);
   }
 
-  const data = await readFile(target);
+  let resolved: string | null = null;
+  let size = 0;
+  for (const candidate of candidates) {
+    try {
+      const info = await stat(candidate);
+      if (info.isFile()) {
+        resolved = candidate;
+        size = info.size;
+        break;
+      }
+    } catch {
+      // candidat suivant
+    }
+  }
+
+  if (!resolved) return notFound();
+
+  const data = await readFile(resolved);
 
   return new Response(new Uint8Array(data), {
     headers: {
-      "Content-Type": contentType,
+      "Content-Type":
+        CONTENT_TYPES[path.extname(resolved).toLowerCase()] ?? contentType,
       "Content-Length": String(size),
       "Content-Disposition": "inline",
       // Les noms de fichiers sont des UUID : le contenu ne change jamais.

@@ -4,6 +4,10 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
+# npm ci s'exécute ici sous musl : il installe la variante Alpine de sharp
+# (@img/sharp-linuxmusl-x64), présente dans le lock. Si la conversion venait
+# malgré tout à échouer, lib/upload conserve le fichier d'origine plutôt que
+# de perdre la pièce jointe.
 RUN npm ci --no-audit --no-fund
 
 # --- Build ------------------------------------------------------------------
