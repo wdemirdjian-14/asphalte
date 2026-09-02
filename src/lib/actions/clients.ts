@@ -27,6 +27,44 @@ export async function createClientAction(formData: FormData): Promise<void> {
     failWith("/admin/clients/nouveau", "Nom, prénom et téléphone sont obligatoires.");
   }
 
+  // Véhicules saisis dans la foulée : les champs sont répétés, on les
+  // apparie par position et on ignore les blocs laissés vides.
+  const plates = formData.getAll("vehiclePlate").map((v) => v.toString().trim());
+  const brands = formData.getAll("vehicleBrand").map((v) => v.toString().trim());
+  const models = formData.getAll("vehicleModel").map((v) => v.toString().trim());
+  const years = formData.getAll("vehicleYear").map((v) => v.toString().trim());
+  const displacements = formData
+    .getAll("vehicleDisplacement")
+    .map((v) => v.toString().trim());
+  const mileages = formData.getAll("vehicleMileage").map((v) => v.toString().trim());
+
+  const vehicles = plates
+    .map((plate, index) => ({
+      plateDisplay: plate.toUpperCase(),
+      brand: brands[index] ?? "",
+      model: models[index] ?? "",
+      year: years[index] ?? "",
+      displacement: displacements[index] ?? "",
+      mileage: mileages[index] ?? "",
+    }))
+    .filter((vehicle) => vehicle.plateDisplay !== "");
+
+  const incomplete = vehicles.find(
+    (vehicle) => !vehicle.brand || !vehicle.model,
+  );
+  if (incomplete) {
+    failWith(
+      "/admin/clients/nouveau",
+      `Marque et modèle sont obligatoires pour ${incomplete.plateDisplay}.`,
+    );
+  }
+
+  const toInt = (value: string): number | null => {
+    if (value === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
+  };
+
   const client = await prisma.client.create({
     data: {
       firstName,
@@ -39,10 +77,29 @@ export async function createClientAction(formData: FormData): Promise<void> {
       postalCode: optionalText(formData, "postalCode"),
       city: optionalText(formData, "city"),
       notes: optionalText(formData, "notes"),
+      vehicles: {
+        create: vehicles.map((vehicle) => ({
+          plate: normalizePlate(vehicle.plateDisplay),
+          plateDisplay: vehicle.plateDisplay,
+          brand: vehicle.brand,
+          model: vehicle.model,
+          year: toInt(vehicle.year),
+          displacement: toInt(vehicle.displacement),
+          mileage: toInt(vehicle.mileage),
+        })),
+      },
     },
+    include: { vehicles: true },
   });
 
   revalidatePath("/admin/clients");
+
+  // Un seul véhicule : on enchaîne sur sa fiche pour photographier
+  // la carte grise dans la foulée.
+  if (client.vehicles.length === 1) {
+    redirect(`/admin/vehicules/${client.vehicles[0].id}`);
+  }
+
   redirect(`/admin/clients/${client.id}`);
 }
 

@@ -4,7 +4,16 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+/**
+ * Les fichiers restent dans public/uploads : c'est le volume déjà monté en
+ * production. Ils ne sont pas servis par le service statique de Next mais
+ * par la route /uploads/[...file] — voir le commentaire de cette route.
+ */
+export const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+
+/** Sous-dossier des pièces jointes réservées aux personnes connectées. */
+export const DOCUMENTS_PREFIX = "docs";
+
 const MAX_BYTES = 12 * 1024 * 1024;
 
 /** Formats affichables directement dans une balise <img>. */
@@ -31,6 +40,7 @@ async function save(
   file: File,
   allowed: Record<string, string>,
   label: string,
+  prefix?: string,
 ): Promise<string> {
   if (file.size === 0) throw new UploadError("Aucun fichier reçu.");
   if (file.size > MAX_BYTES) {
@@ -43,12 +53,13 @@ async function save(
   }
 
   const filename = `${randomUUID()}${extension}`;
+  const directory = prefix ? path.join(UPLOAD_DIR, prefix) : UPLOAD_DIR;
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  await mkdir(UPLOAD_DIR, { recursive: true });
-  await writeFile(path.join(UPLOAD_DIR, filename), buffer);
+  await mkdir(directory, { recursive: true });
+  await writeFile(path.join(directory, filename), buffer);
 
-  return `/uploads/${filename}`;
+  return prefix ? `/uploads/${prefix}/${filename}` : `/uploads/${filename}`;
 }
 
 /**
@@ -59,9 +70,13 @@ export async function saveImage(file: File): Promise<string> {
   return save(file, IMAGE_TYPES, "une photo");
 }
 
-/** Comme saveImage, mais accepte aussi un PDF (carte grise scannée). */
+/**
+ * Comme saveImage, mais accepte aussi un PDF (carte grise scannée) et range
+ * le fichier dans le sous-dossier protégé : une carte grise porte le nom,
+ * l'adresse et l'immatriculation du client.
+ */
 export async function saveDocument(file: File): Promise<string> {
-  return save(file, DOCUMENT_TYPES, "un document");
+  return save(file, DOCUMENT_TYPES, "un document", DOCUMENTS_PREFIX);
 }
 
 /** Un PDF ne s'affiche pas dans une balise <img> : il faut une vignette. */
